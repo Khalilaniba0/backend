@@ -1,0 +1,10 @@
+const express = require('express');
+const router = express.Router();
+const Entretien = require('../models/entretien.model');
+const entretienController = require('../controllers/entretien.controller');
+router.get('/getAllEntretiens', entretienController.getAllEntretiens);
+router.get('/getEntretienById/:id', entretienController.getEntretienById);
+router.post('/createEntretien', entretienController.createEntretien);
+router.put('/updateEntretien/:id', entretienController.updateEntretien);
+router.delete('/deleteEntretien/:id', entretienController.deleteEntretien);
+module.exports = router;

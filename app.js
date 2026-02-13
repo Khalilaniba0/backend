@@ -6,12 +6,15 @@ var logger = require('morgan');
 
 const http =require('http');
 const  { connectToMongoDB } = require('./config/db');
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const userRouter = require('./routes/user.route');
+const offreEmploiRouter = require('./routes/offreEmploi.route');
+const cvRouter = require('./routes/cv.route');
+const condidatureRouter = require('./routes/condidature.route');
+const entretienRouter = require('./routes/entretien.route');
+
 
 require('dotenv').config();
 var app = express();
-
 
 
 app.use(logger('dev'));
@@ -20,14 +23,17 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/index', indexRouter);
-app.use('/users', usersRouter);
+app.use('/user', userRouter);
+app.use('/offreEmploi', offreEmploiRouter);
+app.use('/cv', cvRouter);
+app.use('/condidature', condidatureRouter);
+app.use('/entretien', entretienRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
 });
-
+  
 // error handler
 app.use(function(err, req, res, next) {
   // set locals, only providing error in development
