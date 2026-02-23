@@ -20,10 +20,10 @@ module.exports.getCVById = async (req, res) =>{
         res.status(500).json({ message: error.message });
     }
 }
-module.exports.createCV = async (req , res) =>{
+module.exports.uploadCV = async (req , res) =>{
     try {
-        const profil = req.body;
-        const newCV = new cvModel(profil);
+        const cv_url = req.file.filename;
+        const newCV = new cvModel( { cv_url } );
         await newCV.save();
         res.status(201).json(newCV);
     } catch (error) {
@@ -51,6 +51,21 @@ module.exports.deleteCV = async (req , res) =>{
             throw new Error("CV not found !");
         }
         res.status(200).json(deletedCV);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+}
+module.exports.assignCvToUser = async (req , res) =>{
+    try {
+        const cvId = req.params.id;
+        const userId = req.params.userId;
+        const cvData = await cvModel.findById(cvId);
+        if (!cvData){
+            throw new Error("CV not found !");
+        }
+        cvData.user = userId;
+        await cvData.save();
+        res.status(200).json(cvData);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -22,8 +22,9 @@ module.exports.getEntretienById = async (req, res) =>{
 }
 module.exports.createEntretien = async (req, res) => {
     try {
-        const { date_entretien } = req.body; // 👈 destructuration correcte
-
+        const { date_entretien } = req.body; 
+        const condidatureId = re
+        const responsableId = req.user.id;
         const parsedDate = new Date(date_entretien);
 
         if (isNaN(parsedDate)) {
