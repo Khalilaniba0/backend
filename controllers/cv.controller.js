@@ -1,6 +1,9 @@
 const cvModel = require('../models/cv.model');
 module.exports.getAllCVs = async (req, res) => {
-    try { 
+    try {
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Access denied" });
+        }
         const cvs = await cvModel.find();
         res.status(200).json(cvs);
     } catch (error) {
@@ -14,58 +17,62 @@ module.exports.getCVById = async (req, res) =>{
         if (!cv){
             throw new Error("CV not found !");
         }
-        res.status(200).json(cv);
+        if (req.user.role == "admin" || req.user.role =="rh" )
+        {
+            res.status(200).json(cv);
+        }
+        else if (req.user._id.toString() === cv.user.toString()){
+            res.status(200).json(cv);
+        }
+        else {
+            res.status(403).json({ message: "Access denied" });
+        }
     }
     catch(error){
         res.status(500).json({ message: error.message });
     }
 }
-module.exports.uploadCV = async (req , res) =>{
+module.exports.uploadCV = async (req, res) => {
     try {
-        const cv_url = req.file.filename;
-        const newCV = new cvModel( { cv_url } );
-        await newCV.save();
-        res.status(201).json(newCV);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-}
-module.exports.updateCV = async (req , res) =>{
-    try {
-        const cvId = req.params.id;
-        const updatedData = req.body;
-        const updatedCV = await cvModel.findByIdAndUpdate(cvId , updatedData , { new : true });
-        if (!updatedCV){
-            throw new Error("CV not found !");
+
+        const userId = req.user._id;
+
+        if (!req.file) {
+            return res.status(400).json({ message: "No file uploaded" });
         }
-        res.status(200).json(updatedCV);
+
+        const newCV = new cvModel({
+            cv_url: req.file.filename,
+            user: userId
+        });
+
+        await newCV.save();
+
+        res.status(201).json({
+            message: "CV uploaded successfully",
+            data: newCV
+        });
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
-}
+};
+
 module.exports.deleteCV = async (req , res) =>{
     try {
         const cvId = req.params.id;
+        const cv = await cvModel.findById(cvId);
+        if (!cv) {
+            return res.status(404).json({ message: "CV not found" });
+        }
+        if (req.user._id.toString() !== cv.user.toString()) {
+            return res.status(403).json({ message: "Access denied" });
+        }
         const deletedCV = await cvModel.findByIdAndDelete(cvId);
         if (!deletedCV){
             throw new Error("CV not found !");
         }
         res.status(200).json(deletedCV);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-}
-module.exports.assignCvToUser = async (req , res) =>{
-    try {
-        const cvId = req.params.id;
-        const userId = req.params.userId;
-        const cvData = await cvModel.findById(cvId);
-        if (!cvData){
-            throw new Error("CV not found !");
-        }
-        cvData.user = userId;
-        await cvData.save();
-        res.status(200).json(cvData);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

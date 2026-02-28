@@ -9,7 +9,7 @@ module.exports.getAllUsers = async (req, res) => {
         }
         const users = await userModel.find();
         if (!users){
-            throw new error("No users found !!!")
+            throw new Error("No users found !!!")
         }
         res.status(200).json({ message : "Users retrieved successfully" , data : users });
     } catch (error) {
@@ -88,7 +88,7 @@ module.exports.createAdmin = async (req , res) =>{
     catch(error){
         res.status(500).json({ error: 'error create user ' ,error : error.message });
     }
-}
+}/*
 module.exports.assignCvToUser = async (req , res) =>{
     try {
         const userId = req.params.userId;
@@ -111,11 +111,11 @@ module.exports.assignCvToUser = async (req , res) =>{
         res.status(500).json({ error: 'error assign cv to user ' ,error : error.message });
     }
 }
-
+*/
 const jwt = require("jsonwebtoken");
 
 const maxage = 3 * 24 * 60 * 60; // 3 days in seconds
-const secretKey = process.env.JWT_SECRET_KEY || "mySecretKey"; // Use environment variable or default value
+const secretKey = process.env.JWT_SECRET_KEY; // Use environment variable or default value
 
 
 

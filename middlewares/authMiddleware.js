@@ -8,7 +8,7 @@ const rquireAuth = async (req, res, next) => {
       return res.status(401).json({ error: "Unauthorized: No token provided" });
     }
 
-    jwt.verify(token, "mySecretKey", async (err, decodedToken) => {
+    jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decodedToken) => {
       if (err) {
         return res.status(401).json({ error: "Unauthorized: Invalid token" });
       } else {

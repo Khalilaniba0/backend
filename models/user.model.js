@@ -7,12 +7,10 @@ const userSchema = new mongose.Schema(
         password : String,
         role : { type : String , enum : ['user' ,'rh', 'admin'] , default : 'user' },
         tel: String,
-        block: { type: Boolean, default: false }, 
-        cv : [{ type: mongose.Schema.Types.ObjectId, ref: 'Cv' }]
+        block: { type: Boolean, default: false }
     },{timestamps:true});
 userSchema.pre('save', async function() {
     try {
-        
         const salt = await bcrypt.genSalt();
         const hashedPassword = await bcrypt.hash(this.password, salt);
         this.password = hashedPassword;

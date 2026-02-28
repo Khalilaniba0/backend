@@ -23,7 +23,7 @@ module.exports.getEntretienById = async (req, res) =>{
 module.exports.createEntretien = async (req, res) => {
     try {
         const { date_entretien } = req.body; 
-        const condidatureId = re
+        const condidatureId = req.params.condidatureId;
         const responsableId = req.user.id;
         const parsedDate = new Date(date_entretien);
 
@@ -32,7 +32,7 @@ module.exports.createEntretien = async (req, res) => {
         }
 
         const newEntretien = new entretienModel({
-            date_entretien: parsedDate
+            date_entretien: parsedDate,
         });
 
         await newEntretien.save();
