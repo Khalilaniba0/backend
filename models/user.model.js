@@ -7,10 +7,12 @@ const userSchema = new mongose.Schema(
         password : String,
         role : { type : String , enum : ['user' ,'rh', 'admin'] , default : 'user' },
         tel: String,
-        block: { type: Boolean, default: false }
+        block: { type: Boolean, default: false },
+        loginAttempts: { type: Number, default: 0 }
     },{timestamps:true});
 userSchema.pre('save', async function() {
     try {
+        if (!this.isModified('password')) return;
         const salt = await bcrypt.genSalt();
         const hashedPassword = await bcrypt.hash(this.password, salt);
         this.password = hashedPassword;

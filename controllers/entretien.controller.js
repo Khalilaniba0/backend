@@ -22,17 +22,22 @@ module.exports.getEntretienById = async (req, res) =>{
 }
 module.exports.createEntretien = async (req, res) => {
     try {
-        const { date_entretien } = req.body; 
-        const condidatureId = req.params.condidatureId;
-        const responsableId = req.user.id;
+        const { date_entretien, condidature } = req.body;
+        const responsableId = req.user._id;
         const parsedDate = new Date(date_entretien);
 
         if (isNaN(parsedDate)) {
             return res.status(400).json({ message: "Format de date invalide" });
         }
 
+        if (!condidature) {
+            return res.status(400).json({ message: "condidature is required" });
+        }
+
         const newEntretien = new entretienModel({
             date_entretien: parsedDate,
+            condidature,
+            responsable: responsableId
         });
 
         await newEntretien.save();

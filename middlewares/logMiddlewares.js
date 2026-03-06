@@ -2,8 +2,10 @@ const fs = require("fs");
 const path = require("path"); // Importer le module path
 
 function logMiddleware(req, res, next) {
-  const startTime = new Date(); // Temps de début de la requête
-  appendLog(req, res, startTime);
+  const startTime = new Date();
+  res.on('finish', () => {
+    appendLog(req, res, startTime);
+  });
   next();
 }
 

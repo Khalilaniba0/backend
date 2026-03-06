@@ -13,7 +13,6 @@ const rquireAuth = async (req, res, next) => {
         return res.status(401).json({ error: "Unauthorized: Invalid token" });
       } else {
         const user = await userModel.findById(decodedToken.id);
-        console.log("user from auth middleware:", user);
         if (!user) {
           return res
             .status(401)

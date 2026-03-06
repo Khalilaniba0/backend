@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const Entretien = require('../models/entretien.model');
 const entretienController = require('../controllers/entretien.controller');
-router.get('/getAllEntretiens', entretienController.getAllEntretiens);
-router.get('/getEntretienById/:id', entretienController.getEntretienById);
-router.post('/createEntretien', entretienController.createEntretien);
-router.put('/updateEntretien/:id', entretienController.updateEntretien);
-router.delete('/deleteEntretien/:id', entretienController.deleteEntretien);
+const requireAuth = require('../middlewares/authMiddleware');
+const requireRhOrAdmin = require('../middlewares/requireRhOrAdmin');
+
+router.get('/getAllEntretiens', requireAuth,requireRhOrAdmin,entretienController.getAllEntretiens);
+router.get('/getEntretienById/:id', requireAuth,entretienController.getEntretienById);
+router.post('/createEntretien', requireAuth,requireRhOrAdmin,entretienController.createEntretien);
+router.put('/updateEntretien/:id', requireAuth,requireRhOrAdmin,entretienController.updateEntretien);
+router.delete('/deleteEntretien/:id', requireAuth,requireRhOrAdmin,entretienController.deleteEntretien);
 module.exports = router;

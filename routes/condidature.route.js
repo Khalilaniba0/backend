@@ -1,6 +1,13 @@
 var express = require('express');
 var router  = express.Router();
 const condidatureController = require('../controllers/condidature.controller');
-router.get('/getAllCondidatures', condidatureController.getAllCondidatures);
-router.get('/getCondidatureById/:id',condidatureController.getCondidatureById);
+const requireAuth = require('../middlewares/authMiddleware');
+const requireRhOrAdmin = require('../middlewares/requireRhOrAdmin');
+const requireOwner = require('../middlewares/requireOwner');
+const condidatureModel = require('../models/condidature.model');
+router.get('/getAllCondidatures',requireAuth,requireRhOrAdmin, condidatureController.getAllCondidatures);
+router.get('/getCondidatureById/:id',requireAuth, condidatureController.getCondidatureById);
+router.post('/createCondidature', requireAuth, condidatureController.createCondidature);
+router.get('/getCondidaturesByOffre/:offreId', requireAuth, condidatureController.getCondidaturesByOffre);
+router.delete('/deleteCondidature/:id', requireAuth, requireOwner(condidatureModel), condidatureController.deleteCondidature);
 module.exports = router;
