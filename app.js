@@ -24,7 +24,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/user', userRouter);
-app.use('/offreEmploi', offreEmploiRouter);
+app.use('/offre', offreEmploiRouter);
 app.use('/cv', cvRouter);
 app.use('/condidature', condidatureRouter);
 app.use('/entretien', entretienRouter);

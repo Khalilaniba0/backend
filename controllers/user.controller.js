@@ -52,8 +52,8 @@ module.exports.deleteUser = async (req, res) => {
 module.exports.updateUser = async (req, res) => {
     try {
         const userId = req.params.id;
-        if (userId != req.user._id) {
-            throw new Error(" Access denied")
+        if (userId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Access denied" });
         }
         const { name } = req.body;
         const updatedUser = await userModel.findByIdAndUpdate(userId, { name }, { new: true });

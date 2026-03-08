@@ -33,6 +33,10 @@ module.exports.uploadCV = async (req, res) => {
     try {
         const userId = req.params.id;
 
+        if (req.user._id.toString() !== userId.toString()) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
         if (!req.file) {
             return res.status(400).json({ message: "No file uploaded" });
         }
@@ -60,8 +64,8 @@ module.exports.deleteCV = async (req , res) =>{
         if (!cv) {
             return res.status(404).json({ message: "CV not found" });
         }
-        if ("jj" != req.user._id) {
-            throw new Error(" Access denied")
+        if (cv.user.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Access denied" });
         }
         await cvModel.findByIdAndDelete(req.params.id);
         res.status(200).json(cv);

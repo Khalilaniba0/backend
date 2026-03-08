@@ -26,6 +26,9 @@ module.exports.createCondidature = async (req, res) => {
         if (!offre || !user) {
             return res.status(400).json({ message: "Offre and condidat are required" });
         }
+        if (req.user._id.toString() !== user.toString()) {
+            return res.status(403).json({ message: "Access denied" });
+        }
         const newCondidature = new condidatureModel({
             score_ia: req.body.score_ia || 0,
             offre,
@@ -51,9 +54,13 @@ module.exports.getCondidaturesByOffre = async (req, res) => {
 };
 module.exports.deleteCondidature = async (req , res) =>{
     try {
-        const condidature = req.resource || await condidatureModel.findById(req.params.id);
+        const condidature = await condidatureModel.findById(req.params.id);
+        
         if (!condidature) {
             return res.status(404).json({ message: "Condidature not found" });
+        }
+        if (req.user._id.toString() !== condidature.user.toString()) {
+            return res.status(403).json({ message: "Access denied" });
         }
         await condidatureModel.findByIdAndDelete(req.params.id);
         res.status(200).json({ message: "Condidature deleted successfully" });
