@@ -3,15 +3,16 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+var cors = require('cors');
 
-const http =require('http');
-const  { connectToMongoDB } = require('./config/db');
+const http = require('http');
+const { connectToMongoDB } = require('./config/db');
 const userRouter = require('./routes/user.route');
 const offreEmploiRouter = require('./routes/offreEmploi.route');
-const cvRouter = require('./routes/cv.route');
 const condidatureRouter = require('./routes/condidature.route');
 const entretienRouter = require('./routes/entretien.route');
-
+const employeeRouter = require('./routes/employee.route');
+const notificationRouter = require('./routes/notification.route');
 
 require('dotenv').config();
 var app = express();
@@ -25,15 +26,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/user', userRouter);
 app.use('/offre', offreEmploiRouter);
-app.use('/cv', cvRouter);
 app.use('/condidature', condidatureRouter);
 app.use('/entretien', entretienRouter);
+app.use('/employee', employeeRouter);
+app.use('/notification', notificationRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
 });
-  
+
 // error handler
 app.use(function(err, req, res, next) {
   const status = err.status || 500;
@@ -44,7 +46,7 @@ app.use(function(err, req, res, next) {
 });
 
 const server = http.createServer(app);
-server.listen(process.env.PORT , () => {
+server.listen(process.env.PORT, () => {
   connectToMongoDB();
   console.log(`Server is running on port ${process.env.PORT}`);
-}); 
+});

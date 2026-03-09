@@ -5,8 +5,16 @@ const userSchema = new mongose.Schema(
         name: String,
         email: { type: String, required: [true, 'Email is required'], lowercase: true , unique: true , match: /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/},
         password : String,
-        role : { type : String , enum : ['user' ,'rh', 'admin'] , default : 'user' },
+        role : { type : String , enum : ['rh', 'admin', 'employee'] , default : 'employee' },
         tel: String,
+        // For employees 
+        photo: String,
+        adresse: String,
+        competences: [String],
+        formation: String,
+        linkedin: String,
+        departement: String,
+        // Security fields
         block: { type: Boolean, default: false },
         loginAttempts: { type: Number, default: 0 }
     },{timestamps:true});
@@ -25,9 +33,9 @@ userSchema.statics.login = async function (email, password) {
     if (!user) {
       throw new Error("Incorrect email");
     }
-    // if (user.block === true) {
-    //   throw new Error("User is blocked");
-    // }
+    if (user.block === true) {
+      throw new Error("User is blocked");
+    }
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -57,7 +65,7 @@ userSchema.statics.login = async function (email, password) {
     throw err;
   }
 };
-  
-    
+
+
 const User = mongose.model('User',userSchema);
-module.exports = User;        
+module.exports = User;
