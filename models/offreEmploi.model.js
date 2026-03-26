@@ -4,6 +4,7 @@ const offreEmploiSchema = new mongose.Schema(
         post: String,
         description : String,
         status : { type : String , enum : ['open' ,'closed'] , default : 'open' },
+        entreprise: { type: mongose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
         responsable: { type: mongose.Schema.Types.ObjectId, ref: 'User' },
         requirements: [String],
         typeContrat: { type: String, enum: ['CDI', 'CDD', 'Stage', 'Alternance', 'Freelance'], default: 'CDI' },

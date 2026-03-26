@@ -1,6 +1,7 @@
 const mongose = require('mongoose');
 const entretienSchema = new mongose.Schema(
     {
+        entreprise: { type: mongose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
         candidature: { type: mongose.Schema.Types.ObjectId, ref: 'Condidature', required: true },
         responsable: { type: mongose.Schema.Types.ObjectId, ref: 'User', required: true },
         date_entretien: { type: Date, required: true },

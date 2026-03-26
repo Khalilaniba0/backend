@@ -11,12 +11,17 @@ const userRouter = require('./routes/user.route');
 const offreEmploiRouter = require('./routes/offreEmploi.route');
 const condidatureRouter = require('./routes/condidature.route');
 const entretienRouter = require('./routes/entretien.route');
-const employeeRouter = require('./routes/employee.route');
-const notificationRouter = require('./routes/notification.route');
+const entrepriseRouter = require('./routes/entreprise.route');
 
 require('dotenv').config();
 var app = express();
 
+// Enable CORS for local frontend running on http://localhost:3000
+const corsOptions = {
+  origin: 'http://localhost:3000',
+  credentials: true,
+};
+app.use(cors(corsOptions));
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -28,8 +33,7 @@ app.use('/user', userRouter);
 app.use('/offre', offreEmploiRouter);
 app.use('/condidature', condidatureRouter);
 app.use('/entretien', entretienRouter);
-app.use('/employee', employeeRouter);
-app.use('/notification', notificationRouter);
+app.use('/entreprise', entrepriseRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

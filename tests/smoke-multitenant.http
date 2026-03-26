@@ -1,0 +1,77 @@
+@baseUrl = http://localhost:5000
+@json = application/json
+
+### 1) Register entreprise + admin (public)
+POST {{baseUrl}}/entreprise/register
+Content-Type: {{json}}
+
+{
+  "nom": "Talentia QA",
+  "email": "entreprise.qa@example.com",
+  "adresse": "Tunis",
+  "secteur": "Tech",
+  "plan": "pro",
+  "adminName": "Admin QA",
+  "adminEmail": "admin.qa@example.com",
+  "adminPassword": "Admin123!"
+}
+
+### 2) Login admin (save jwt cookie from response)
+POST {{baseUrl}}/user/login
+Content-Type: {{json}}
+
+{
+  "email": "admin.qa@example.com",
+  "password": "Admin123!"
+}
+
+### 3) Create RH in same tenant (requires jwt cookie)
+POST {{baseUrl}}/user/createRh
+Content-Type: {{json}}
+
+{
+  "name": "RH QA",
+  "email": "rh.qa@example.com",
+  "password": "Rh123456!",
+  "tel": "12345678",
+  "departement": "RH"
+}
+
+### 4) Create offre in same tenant (requires jwt cookie)
+POST {{baseUrl}}/offre/create
+Content-Type: {{json}}
+
+{
+  "post": "Developpeur Node",
+  "description": "Backend ATS",
+  "requirements": ["Node.js", "MongoDB"],
+  "typeContrat": "CDI",
+  "localisation": "Tunis",
+  "modeContrat": "hybride",
+  "departement": "IT",
+  "niveauExperience": "mid"
+}
+
+### 5) Public: list offres
+GET {{baseUrl}}/offre/getAll
+
+### 6) Public: postuler (replace offre id)
+POST {{baseUrl}}/condidature/postuler
+Content-Type: {{json}}
+
+{
+  "nom": "Candidat Public",
+  "email": "candidat.qa@example.com",
+  "telephone": "99999999",
+  "lettre_motivation": "Je suis motive",
+  "offre": "REPLACE_OFFRE_ID"
+}
+
+### 7) Public: suivi candidature (replace token)
+GET {{baseUrl}}/condidature/suivi/REPLACE_TOKEN_SUIVI
+
+### 8) Protected: get all condidatures (requires jwt cookie)
+GET {{baseUrl}}/condidature/getAll
+
+### 9) Protected admin: my entreprise (requires jwt cookie)
+GET {{baseUrl}}/entreprise/me

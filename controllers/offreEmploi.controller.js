@@ -32,6 +32,10 @@ module.exports.getOffreById = async (req, res) => {
 
 module.exports.createOffre = async (req, res) => {
     try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
         const {
             post, description, requirements, typeContrat, salaireMin, salaireMax,
             localisation, modeContrat, departement, dateLimite, niveauExperience
@@ -40,7 +44,8 @@ module.exports.createOffre = async (req, res) => {
         const newOffre = new offreEmploiModel({
             post, description, requirements, typeContrat, salaireMin, salaireMax,
             localisation, modeContrat, departement, dateLimite, niveauExperience,
-            responsable: req.user._id
+            responsable: req.user._id,
+            entreprise: req.entrepriseId
         });
 
         await newOffre.save();
@@ -51,6 +56,10 @@ module.exports.createOffre = async (req, res) => {
 };
 module.exports.updateOffre = async (req, res) => {
     try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
         const offreId = req.params.id;
         const {
             post, description, requirements, typeContrat, salaireMin, salaireMax,
@@ -70,7 +79,11 @@ module.exports.updateOffre = async (req, res) => {
         if (dateLimite !== undefined) updateData.dateLimite = dateLimite;
         if (niveauExperience !== undefined) updateData.niveauExperience = niveauExperience;
 
-        const updatedOffre = await offreEmploiModel.findByIdAndUpdate(offreId, updateData, { new: true });
+        const updatedOffre = await offreEmploiModel.findOneAndUpdate(
+            { _id: offreId, entreprise: req.entrepriseId },
+            updateData,
+            { new: true }
+        );
         if (!updatedOffre) {
             return res.status(404).json({ message: "Offre not found" });
         }
@@ -82,8 +95,12 @@ module.exports.updateOffre = async (req, res) => {
 
 module.exports.deleteOffre = async (req, res) => {
     try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
         const offreId = req.params.id;
-        const deletedOffre = await offreEmploiModel.findByIdAndDelete(offreId);
+        const deletedOffre = await offreEmploiModel.findOneAndDelete({ _id: offreId, entreprise: req.entrepriseId });
         if (!deletedOffre) {
             return res.status(404).json({ message: "Offre not found" });
         }
@@ -95,15 +112,23 @@ module.exports.deleteOffre = async (req, res) => {
 
 module.exports.updateStatus = async (req, res) => {
     try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
         const offreId = req.params.id;
-        const offre = await offreEmploiModel.findById(offreId);
+        const offre = await offreEmploiModel.findOne({ _id: offreId, entreprise: req.entrepriseId });
 
         if (!offre) {
             return res.status(404).json({ message: "Offre not found" });
         }
 
         const newStatus = offre.status === 'closed' ? 'open' : 'closed';
-        const updatedOffre = await offreEmploiModel.findByIdAndUpdate(offreId, { status: newStatus }, { new: true });
+        const updatedOffre = await offreEmploiModel.findOneAndUpdate(
+            { _id: offreId, entreprise: req.entrepriseId },
+            { status: newStatus },
+            { new: true }
+        );
 
         res.status(200).json({ message: "Offre status updated successfully", data: updatedOffre });
     } catch (error) {

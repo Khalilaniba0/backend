@@ -1,10 +1,13 @@
 const entretienModel = require('../models/entretien.model');
 const condidatureModel = require('../models/condidature.model');
-const { createFromCandidature } = require('./employee.controller');
 
 module.exports.getAllEntretiens = async (req, res) => {
     try {
-        const entretiens = await entretienModel.find()
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
+        const entretiens = await entretienModel.find({ entreprise: req.entrepriseId })
             .populate('candidature')
             .populate('responsable', 'name email');
         res.status(200).json({ message: "Entretiens retrieved successfully", data: entretiens });
@@ -15,7 +18,11 @@ module.exports.getAllEntretiens = async (req, res) => {
 
 module.exports.getEntretienById = async (req, res) => {
     try {
-        const entretien = await entretienModel.findById(req.params.id)
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
+        const entretien = await entretienModel.findOne({ _id: req.params.id, entreprise: req.entrepriseId })
             .populate('candidature')
             .populate('responsable', 'name email');
         if (!entretien) {
@@ -29,6 +36,10 @@ module.exports.getEntretienById = async (req, res) => {
 
 module.exports.createEntretien = async (req, res) => {
     try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
         const { candidature, date_entretien, type_entretien, duree, lien_visio } = req.body;
         const responsableId = req.user._id;
 
@@ -41,7 +52,7 @@ module.exports.createEntretien = async (req, res) => {
             return res.status(400).json({ message: "Invalid date format" });
         }
 
-        const candidatureDoc = await condidatureModel.findById(candidature);
+        const candidatureDoc = await condidatureModel.findOne({ _id: candidature, entreprise: req.entrepriseId });
         if (!candidatureDoc) {
             return res.status(404).json({ message: "Candidature not found" });
         }
@@ -50,6 +61,7 @@ module.exports.createEntretien = async (req, res) => {
         const endDate = new Date(parsedDate.getTime() + dureeMinutes * 60000);
 
         const conflictResponsable = await entretienModel.findOne({
+            entreprise: req.entrepriseId,
             responsable: responsableId,
             date_entretien: {
                 $gte: new Date(parsedDate.getTime() - dureeMinutes * 60000),
@@ -61,6 +73,7 @@ module.exports.createEntretien = async (req, res) => {
         }
 
         const conflictCandidature = await entretienModel.findOne({
+            entreprise: req.entrepriseId,
             candidature,
             date_entretien: {
                 $gte: new Date(parsedDate.getTime() - dureeMinutes * 60000),
@@ -72,6 +85,7 @@ module.exports.createEntretien = async (req, res) => {
         }
 
         const newEntretien = new entretienModel({
+            entreprise: req.entrepriseId,
             candidature,
             responsable: responsableId,
             date_entretien: parsedDate,
@@ -93,7 +107,11 @@ module.exports.createEntretien = async (req, res) => {
 
 module.exports.updateEntretien = async (req, res) => {
     try {
-        const entretien = await entretienModel.findById(req.params.id);
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
+        const entretien = await entretienModel.findOne({ _id: req.params.id, entreprise: req.entrepriseId });
         if (!entretien) {
             return res.status(404).json({ message: "Entretien not found" });
         }
@@ -111,16 +129,11 @@ module.exports.updateEntretien = async (req, res) => {
         if (reponse !== undefined) {
             entretien.reponse = reponse;
 
-            const candidature = await condidatureModel.findById(entretien.candidature);
+            const candidature = await condidatureModel.findOne({ _id: entretien.candidature, entreprise: req.entrepriseId });
             if (candidature) {
                 if (reponse === 'accepte') {
                     candidature.etape = 'accepte';
                     await candidature.save();
-                    try {
-                        await createFromCandidature(candidature);
-                    } catch (err) {
-                        console.error('Error creating employee from candidature:', err.message);
-                    }
                 } else if (reponse === 'refuse') {
                     candidature.etape = 'refuse';
                     await candidature.save();
@@ -137,7 +150,11 @@ module.exports.updateEntretien = async (req, res) => {
 
 module.exports.deleteEntretien = async (req, res) => {
     try {
-        const deletedEntretien = await entretienModel.findByIdAndDelete(req.params.id);
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
+        const deletedEntretien = await entretienModel.findOneAndDelete({ _id: req.params.id, entreprise: req.entrepriseId });
         if (!deletedEntretien) {
             return res.status(404).json({ message: "Entretien not found" });
         }

@@ -6,6 +6,7 @@ const condidatureSchema = new mongose.Schema(
         telephone: String,
         cv_url: String,
         lettre_motivation: String,
+        entreprise: { type: mongose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
         offre: { type: mongose.Schema.Types.ObjectId, ref: 'OffreEmploi', required: true },
         score_ia: { type: Number, default: null },
         etape: {

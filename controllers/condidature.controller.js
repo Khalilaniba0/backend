@@ -13,11 +13,15 @@ const ALLOWED_TRANSITIONS = {
 
 module.exports.getAllCondidatures = async (req, res) => {
     try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
         // req.query exemple: /condidatures?offre=123&etape=preselectionne
         // req.query.offre => filter by offre ID
         // req.query.etape => filter by etape
         //populate permet de recupere l'objet offre complet au lieu de juste son ID
-        const filter = {};
+        const filter = { entreprise: req.entrepriseId };
         if (req.query.offre) filter.offre = req.query.offre;
         if (req.query.etape) filter.etape = req.query.etape;
         const condidatures = await condidatureModel.find(filter).populate('offre');
@@ -29,7 +33,11 @@ module.exports.getAllCondidatures = async (req, res) => {
 
 module.exports.getCondidatureById = async (req, res) => {
     try {
-        const condidature = await condidatureModel.findById(req.params.id).populate('offre');
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
+        const condidature = await condidatureModel.findOne({ _id: req.params.id, entreprise: req.entrepriseId }).populate('offre');
         if (!condidature) {
             return res.status(404).json({ message: "Condidature not found" });
         }
@@ -41,11 +49,21 @@ module.exports.getCondidatureById = async (req, res) => {
 // .sort permet de trier les condidatures par score IA decroissant pour une offre donnée
 module.exports.getCondidaturesByOffre = async (req, res) => {
     try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
         const offreId = req.params.offreId;
         if (!offreId) {
             return res.status(400).json({ message: "Offre ID is required" });
         }
-        const condidatures = await condidatureModel.find({ offre: offreId })
+
+        const offre = await offreEmploiModel.findOne({ _id: offreId, entreprise: req.entrepriseId });
+        if (!offre) {
+            return res.status(404).json({ message: "Offre not found" });
+        }
+
+        const condidatures = await condidatureModel.find({ offre: offreId, entreprise: req.entrepriseId })
             .populate('offre')
             .sort({ score_ia: -1 });
         res.status(200).json({ message: "Condidatures retrieved successfully", data: condidatures });
@@ -92,7 +110,7 @@ module.exports.createCondidature = async (req, res) => {
             return res.status(400).json({ message: "The deadline for this offer has passed" });
         }
 
-        const existing = await condidatureModel.findOne({ email, offre });
+        const existing = await condidatureModel.findOne({ email, offre, entreprise: offreDoc.entreprise });
         if (existing) {
             return res.status(400).json({ message: "A condidature with this email already exists for this offer" });
         }
@@ -106,6 +124,7 @@ module.exports.createCondidature = async (req, res) => {
             telephone,
             cv_url,
             lettre_motivation,
+            entreprise: offreDoc.entreprise,
             offre,
             etape: 'soumise',
             tokenSuivi
@@ -121,7 +140,11 @@ module.exports.createCondidature = async (req, res) => {
 // il faut comprendre cette fonction
 module.exports.updateEtape = async (req, res) => {
     try {
-        const condidature = await condidatureModel.findById(req.params.id);
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
+        const condidature = await condidatureModel.findOne({ _id: req.params.id, entreprise: req.entrepriseId });
         if (!condidature) {
             return res.status(404).json({ message: "Condidature not found" });
         }
@@ -152,7 +175,11 @@ module.exports.updateEtape = async (req, res) => {
 
 module.exports.deleteCondidature = async (req, res) => {
     try {
-        const condidature = await condidatureModel.findByIdAndDelete(req.params.id);
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
+        const condidature = await condidatureModel.findOneAndDelete({ _id: req.params.id, entreprise: req.entrepriseId });
         if (!condidature) {
             return res.status(404).json({ message: "Condidature not found" });
         }

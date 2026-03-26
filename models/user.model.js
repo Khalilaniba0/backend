@@ -5,15 +5,11 @@ const userSchema = new mongose.Schema(
         name: String,
         email: { type: String, required: [true, 'Email is required'], lowercase: true , unique: true , match: /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/},
         password : String,
-        role : { type : String , enum : ['rh', 'admin', 'employee'] , default : 'employee' },
+        role : { type : String , enum : ['rh', 'admin' ] , default : 'rh' },
         tel: String,
-        // For employees 
         photo: String,
         adresse: String,
-        competences: [String],
-        formation: String,
-        linkedin: String,
-        departement: String,
+        entreprise: { type: mongose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
         // Security fields
         block: { type: Boolean, default: false },
         loginAttempts: { type: Number, default: 0 }

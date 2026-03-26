@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const userModel = require("../models/user.model");
 
-const rquireAuth = async (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   try {
     const token = req.cookies.jwt;
     if (!token) {
@@ -12,13 +12,16 @@ const rquireAuth = async (req, res, next) => {
       if (err) {
         return res.status(401).json({ error: "Unauthorized: Invalid token" });
       } else {
-        const user = await userModel.findById(decodedToken.id);
+        const userId = decodedToken.userId || decodedToken.id;
+        const user = await userModel.findById(userId);
         if (!user) {
           return res
             .status(401)
             .json({ error: "Unauthorized: User not found" });
         }
-        req.user = user; // Attach user information to the request object
+
+        req.user = user;
+        req.entrepriseId = decodedToken.entrepriseId || (user.entreprise ? user.entreprise.toString() : null);
         next();
       }
     });
@@ -27,4 +30,4 @@ const rquireAuth = async (req, res, next) => {
   }
 };
 
-module.exports = rquireAuth ;
+module.exports = requireAuth;
