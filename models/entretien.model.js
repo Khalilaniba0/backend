@@ -1,20 +1,28 @@
-const mongose = require('mongoose');
-const entretienSchema = new mongose.Schema(
+const mongoose = require('mongoose');
+
+const entretienSchema = new mongoose.Schema(
     {
-        entreprise: { type: mongose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
-        candidature: { type: mongose.Schema.Types.ObjectId, ref: 'Condidature', required: true },
-        responsable: { type: mongose.Schema.Types.ObjectId, ref: 'User', required: true },
-        date_entretien: { type: Date, required: true },
-        type_entretien: { type: String, enum: ['telephone', 'visio', 'presentiel'], default: 'visio' },
+        entreprise: { type: mongoose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
+        candidature: { type: mongoose.Schema.Types.ObjectId, ref: 'Candidature', required: true },
+        responsable: { type: mongoose.Schema.Types.ObjectId, ref: 'Utilisateur', required: true },
+        dateEntretien: { type: Date, required: true, alias: 'date_entretien' },
+        typeEntretien: { type: String, enum: ['telephone', 'visio', 'presentiel'], default: 'visio', alias: 'type_entretien' },
         duree: { type: Number, default: 30 },
-        lien_visio: String,
+        lienVisio: { type: String, alias: 'lien_visio' },
         commentaires: String,
-        score_entretien: { type: Number, min: 0, max: 20 },
-        criteres_evaluation: [{
+        scoreEntretien: { type: Number, min: 0, max: 20, alias: 'score_entretien' },
+        criteresEvaluation: [{
             critere: String,
             note: { type: Number, min: 0, max: 5 }
         }],
-        reponse: { type: String, enum: ['accepte', 'refuse', 'en attente'], default: 'en attente' }
-    }, { timestamps: true });
-const Entretien = mongose.model('Entretien', entretienSchema);
+        reponse: { type: String, enum: ['accepte', 'refuse', 'en_attente'], default: 'en_attente' }
+    },
+    { timestamps: true }
+);
+
+entretienSchema.path('criteresEvaluation').options.alias = 'criteres_evaluation';
+entretienSchema.set('toJSON', { virtuals: true });
+entretienSchema.set('toObject', { virtuals: true });
+
+const Entretien = mongoose.model('Entretien', entretienSchema, 'entretiens');
 module.exports = Entretien;

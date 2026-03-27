@@ -1,7 +1,7 @@
 const entrepriseModel = require('../models/entreprise.model');
-const userModel = require('../models/user.model');
+const utilisateurModel = require('../models/utilisateur.model');
 const offreEmploiModel = require('../models/offreEmploi.model');
-const condidatureModel = require('../models/condidature.model');
+const candidatureModel = require('../models/candidature.model');
 const entretienModel = require('../models/entretien.model');
 
 module.exports.registerEntreprise = async (req, res) => {
@@ -23,9 +23,9 @@ module.exports.registerEntreprise = async (req, res) => {
       admin
     } = req.body;
 
-    const resolvedAdminName = adminName || (admin && admin.name);
+    const resolvedAdminName = adminName || (admin && (admin.nom || admin.name));
     const resolvedAdminEmail = adminEmail || (admin && admin.email);
-    const resolvedAdminPassword = adminPassword || (admin && admin.password);
+    const resolvedAdminPassword = adminPassword || (admin && (admin.motDePasse || admin.password));
     const resolvedAdminTel = adminTel || (admin && admin.tel);
     const resolvedAdminPhoto = adminPhoto || (admin && admin.photo);
     const resolvedAdminAdresse = adminAdresse || (admin && admin.adresse);
@@ -47,10 +47,10 @@ module.exports.registerEntreprise = async (req, res) => {
     });
 
     try {
-      const adminUser = await userModel.create({
-        name: resolvedAdminName,
+      const adminUser = await utilisateurModel.create({
+        nom: resolvedAdminName,
         email: resolvedAdminEmail,
-        password: resolvedAdminPassword,
+        motDePasse: resolvedAdminPassword,
         role: 'admin',
         tel: resolvedAdminTel,
         photo: resolvedAdminPhoto,
@@ -58,13 +58,15 @@ module.exports.registerEntreprise = async (req, res) => {
         entreprise: entreprise._id
       });
 
-      const { password: _, ...adminWithoutPassword } = adminUser.toObject();
+      const adminObject = adminUser.toObject({ virtuals: true });
+      delete adminObject.motDePasse;
+      delete adminObject.password;
 
       return res.status(201).json({
         message: 'Entreprise registered successfully',
         data: {
           entreprise,
-          admin: adminWithoutPassword
+          admin: adminObject
         }
       });
     } catch (adminError) {
@@ -121,9 +123,9 @@ module.exports.deleteEntreprise = async (req, res) => {
     }
 
     await Promise.all([
-      userModel.deleteMany({ entreprise: entrepriseId }),
+      utilisateurModel.deleteMany({ entreprise: entrepriseId }),
       offreEmploiModel.deleteMany({ entreprise: entrepriseId }),
-      condidatureModel.deleteMany({ entreprise: entrepriseId }),
+      candidatureModel.deleteMany({ entreprise: entrepriseId }),
       entretienModel.deleteMany({ entreprise: entrepriseId })
     ]);
 

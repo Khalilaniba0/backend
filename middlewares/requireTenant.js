@@ -13,8 +13,9 @@ const requireTenant = (req, res, next) => {
     }
   }
 
-  if (!req.entrepriseId && req.user && req.user.entreprise) {
-    req.entrepriseId = req.user.entreprise.toString();
+  const utilisateurCourant = req.utilisateur || req.user;
+  if (!req.entrepriseId && utilisateurCourant && utilisateurCourant.entreprise) {
+    req.entrepriseId = utilisateurCourant.entreprise.toString();
   }
 
   if (!req.entrepriseId) {

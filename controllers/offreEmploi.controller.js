@@ -1,17 +1,27 @@
 const offreEmploiModel = require('../models/offreEmploi.model');
 
+const normaliserOffreSortie = (doc) => {
+    const offre = doc.toObject ? doc.toObject({ virtuals: true }) : doc;
+    return {
+        ...offre,
+        post: offre.post || offre.poste,
+        status: offre.status || offre.statut,
+        requirements: offre.requirements || offre.exigences
+    };
+};
+
 module.exports.getAllOffres = async (req, res) => {
     try {
         const filter = {};
         if (req.query.typeContrat) filter.typeContrat = req.query.typeContrat;
         if (req.query.localisation) filter.localisation = { $regex: req.query.localisation, $options: 'i' };
-        if (req.query.status) filter.status = req.query.status;
+        if (req.query.status || req.query.statut) filter.statut = req.query.statut || req.query.status;
         if (req.query.departement) filter.departement = { $regex: req.query.departement, $options: 'i' };
         if (req.query.modeContrat) filter.modeContrat = req.query.modeContrat;
         if (req.query.niveauExperience) filter.niveauExperience = req.query.niveauExperience;
 
-        const offres = await offreEmploiModel.find(filter).populate('responsable', 'name email');
-        res.status(200).json({ message: "Offres retrieved successfully", data: offres });
+        const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
+        res.status(200).json({ message: 'Offres retrieved successfully', data: offres.map(normaliserOffreSortie) });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving offres', error: error.message });
     }
@@ -20,11 +30,11 @@ module.exports.getAllOffres = async (req, res) => {
 module.exports.getOffreById = async (req, res) => {
     try {
         const offreId = req.params.id;
-        const offre = await offreEmploiModel.findById(offreId).populate('responsable', 'name email');
+        const offre = await offreEmploiModel.findById(offreId).populate('responsable', 'nom name email');
         if (!offre) {
             return res.status(404).json({ message: "Offre not found" });
         }
-        res.status(200).json({ message: "Offre retrieved successfully", data: offre });
+        res.status(200).json({ message: 'Offre retrieved successfully', data: normaliserOffreSortie(offre) });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving offre', error: error.message });
     }
@@ -37,19 +47,24 @@ module.exports.createOffre = async (req, res) => {
         }
 
         const {
-            post, description, requirements, typeContrat, salaireMin, salaireMax,
+            post, poste, description, requirements, exigences, typeContrat, salaireMin, salaireMax,
             localisation, modeContrat, departement, dateLimite, niveauExperience
         } = req.body;
 
         const newOffre = new offreEmploiModel({
-            post, description, requirements, typeContrat, salaireMin, salaireMax,
+            poste: poste !== undefined ? poste : post,
+            description,
+            exigences: exigences !== undefined ? exigences : requirements,
+            typeContrat,
+            salaireMin,
+            salaireMax,
             localisation, modeContrat, departement, dateLimite, niveauExperience,
-            responsable: req.user._id,
+            responsable: (req.utilisateur || req.user)._id,
             entreprise: req.entrepriseId
         });
 
         await newOffre.save();
-        res.status(201).json({ message: "Offre created successfully", data: newOffre });
+        res.status(201).json({ message: 'Offre created successfully', data: normaliserOffreSortie(newOffre) });
     } catch (error) {
         res.status(500).json({ message: 'Error creating offre', error: error.message });
     }
@@ -62,14 +77,16 @@ module.exports.updateOffre = async (req, res) => {
 
         const offreId = req.params.id;
         const {
-            post, description, requirements, typeContrat, salaireMin, salaireMax,
+            post, poste, description, requirements, exigences, typeContrat, salaireMin, salaireMax,
             localisation, modeContrat, departement, dateLimite, niveauExperience
         } = req.body;
 
         const updateData = {};
-        if (post !== undefined) updateData.post = post;
+        if (poste !== undefined || post !== undefined) updateData.poste = poste !== undefined ? poste : post;
         if (description !== undefined) updateData.description = description;
-        if (requirements !== undefined) updateData.requirements = requirements;
+        if (exigences !== undefined || requirements !== undefined) {
+            updateData.exigences = exigences !== undefined ? exigences : requirements;
+        }
         if (typeContrat !== undefined) updateData.typeContrat = typeContrat;
         if (salaireMin !== undefined) updateData.salaireMin = salaireMin;
         if (salaireMax !== undefined) updateData.salaireMax = salaireMax;
@@ -87,7 +104,7 @@ module.exports.updateOffre = async (req, res) => {
         if (!updatedOffre) {
             return res.status(404).json({ message: "Offre not found" });
         }
-        res.status(200).json({ message: "Offre updated successfully", data: updatedOffre });
+        res.status(200).json({ message: 'Offre updated successfully', data: normaliserOffreSortie(updatedOffre) });
     } catch (error) {
         res.status(500).json({ message: 'Error updating offre', error: error.message });
     }
@@ -104,7 +121,7 @@ module.exports.deleteOffre = async (req, res) => {
         if (!deletedOffre) {
             return res.status(404).json({ message: "Offre not found" });
         }
-        res.status(200).json({ message: "Offre deleted successfully", data: deletedOffre });
+        res.status(200).json({ message: 'Offre deleted successfully', data: normaliserOffreSortie(deletedOffre) });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting offre', error: error.message });
     }
@@ -123,14 +140,14 @@ module.exports.updateStatus = async (req, res) => {
             return res.status(404).json({ message: "Offre not found" });
         }
 
-        const newStatus = offre.status === 'closed' ? 'open' : 'closed';
+        const nouveauStatut = offre.statut === 'closed' ? 'open' : 'closed';
         const updatedOffre = await offreEmploiModel.findOneAndUpdate(
             { _id: offreId, entreprise: req.entrepriseId },
-            { status: newStatus },
+            { statut: nouveauStatut },
             { new: true }
         );
 
-        res.status(200).json({ message: "Offre status updated successfully", data: updatedOffre });
+        res.status(200).json({ message: 'Offre status updated successfully', data: normaliserOffreSortie(updatedOffre) });
     } catch (error) {
         res.status(500).json({ message: 'Error updating offre status', error: error.message });
     }

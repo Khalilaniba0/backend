@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const userModel = require("../models/user.model");
+const utilisateurModel = require('../models/utilisateur.model');
 
 const requireAuth = async (req, res, next) => {
   try {
@@ -12,16 +12,23 @@ const requireAuth = async (req, res, next) => {
       if (err) {
         return res.status(401).json({ error: "Unauthorized: Invalid token" });
       } else {
-        const userId = decodedToken.userId || decodedToken.id;
-        const user = await userModel.findById(userId);
-        if (!user) {
+        const utilisateurId = decodedToken.utilisateurId || decodedToken.userId || decodedToken.id;
+        const utilisateur = await utilisateurModel.findById(utilisateurId);
+        if (!utilisateur) {
           return res
             .status(401)
             .json({ error: "Unauthorized: User not found" });
         }
 
-        req.user = user;
-        req.entrepriseId = decodedToken.entrepriseId || (user.entreprise ? user.entreprise.toString() : null);
+        req.utilisateur = utilisateur;
+        req.utilisateurId = decodedToken.utilisateurId || decodedToken.userId || decodedToken.id || utilisateur._id.toString();
+        req.role = decodedToken.role || utilisateur.role;
+        req.entrepriseId = decodedToken.entrepriseId || (utilisateur.entreprise ? utilisateur.entreprise.toString() : null);
+
+        // Compatibilite descendante
+        req.user = utilisateur;
+        req.userId = req.utilisateurId;
+
         next();
       }
     });

@@ -1,5 +1,17 @@
 const entretienModel = require('../models/entretien.model');
-const condidatureModel = require('../models/condidature.model');
+const candidatureModel = require('../models/candidature.model');
+
+const normaliserEntretienSortie = (doc) => {
+    const entretien = doc.toObject ? doc.toObject({ virtuals: true }) : doc;
+    return {
+        ...entretien,
+        date_entretien: entretien.date_entretien || entretien.dateEntretien,
+        type_entretien: entretien.type_entretien || entretien.typeEntretien,
+        score_entretien: entretien.score_entretien !== undefined ? entretien.score_entretien : entretien.scoreEntretien,
+        criteres_evaluation: entretien.criteres_evaluation || entretien.criteresEvaluation,
+        lien_visio: entretien.lien_visio || entretien.lienVisio
+    };
+};
 
 module.exports.getAllEntretiens = async (req, res) => {
     try {
@@ -9,8 +21,8 @@ module.exports.getAllEntretiens = async (req, res) => {
 
         const entretiens = await entretienModel.find({ entreprise: req.entrepriseId })
             .populate('candidature')
-            .populate('responsable', 'name email');
-        res.status(200).json({ message: "Entretiens retrieved successfully", data: entretiens });
+            .populate('responsable', 'nom name email');
+        res.status(200).json({ message: 'Entretiens retrieved successfully', data: entretiens.map(normaliserEntretienSortie) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -24,11 +36,11 @@ module.exports.getEntretienById = async (req, res) => {
 
         const entretien = await entretienModel.findOne({ _id: req.params.id, entreprise: req.entrepriseId })
             .populate('candidature')
-            .populate('responsable', 'name email');
+            .populate('responsable', 'nom name email');
         if (!entretien) {
             return res.status(404).json({ message: "Entretien not found" });
         }
-        res.status(200).json({ message: "Entretien retrieved successfully", data: entretien });
+        res.status(200).json({ message: 'Entretien retrieved successfully', data: normaliserEntretienSortie(entretien) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -40,19 +52,25 @@ module.exports.createEntretien = async (req, res) => {
             return res.status(403).json({ message: "Access denied: tenant is required" });
         }
 
-        const { candidature, date_entretien, type_entretien, duree, lien_visio } = req.body;
-        const responsableId = req.user._id;
+        const { candidature, date_entretien, dateEntretien, type_entretien, typeEntretien, duree, lien_visio, lienVisio } = req.body;
+        const responsableId = req.userId;
 
-        if (!candidature || !date_entretien) {
+        if (!responsableId) {
+            return res.status(401).json({ message: "Unauthorized: userId is required" });
+        }
+
+        const dateEntretienBrute = dateEntretien !== undefined ? dateEntretien : date_entretien;
+
+        if (!candidature || !dateEntretienBrute) {
             return res.status(400).json({ message: "candidature and date_entretien are required" });
         }
 
-        const parsedDate = new Date(date_entretien);
+        const parsedDate = new Date(dateEntretienBrute);
         if (isNaN(parsedDate)) {
             return res.status(400).json({ message: "Invalid date format" });
         }
 
-        const candidatureDoc = await condidatureModel.findOne({ _id: candidature, entreprise: req.entrepriseId });
+        const candidatureDoc = await candidatureModel.findOne({ _id: candidature, entreprise: req.entrepriseId });
         if (!candidatureDoc) {
             return res.status(404).json({ message: "Candidature not found" });
         }
@@ -88,10 +106,10 @@ module.exports.createEntretien = async (req, res) => {
             entreprise: req.entrepriseId,
             candidature,
             responsable: responsableId,
-            date_entretien: parsedDate,
-            type_entretien: type_entretien || 'visio',
+            dateEntretien: parsedDate,
+            typeEntretien: typeEntretien !== undefined ? typeEntretien : (type_entretien || 'visio'),
             duree: dureeMinutes,
-            lien_visio
+            lienVisio: lienVisio !== undefined ? lienVisio : lien_visio
         });
 
         await newEntretien.save();
@@ -99,7 +117,7 @@ module.exports.createEntretien = async (req, res) => {
         candidatureDoc.etape = 'entretien_planifie';
         await candidatureDoc.save();
 
-        res.status(201).json({ message: "Entretien created successfully", data: newEntretien });
+        res.status(201).json({ message: 'Entretien created successfully', data: normaliserEntretienSortie(newEntretien) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -116,20 +134,44 @@ module.exports.updateEntretien = async (req, res) => {
             return res.status(404).json({ message: "Entretien not found" });
         }
 
-        const { commentaires, score_entretien, criteres_evaluation, reponse, date_entretien, type_entretien, duree, lien_visio } = req.body;
+        const {
+            commentaires,
+            score_entretien,
+            scoreEntretien,
+            criteres_evaluation,
+            criteresEvaluation,
+            reponse,
+            date_entretien,
+            dateEntretien,
+            type_entretien,
+            typeEntretien,
+            duree,
+            lien_visio,
+            lienVisio
+        } = req.body;
 
         if (commentaires !== undefined) entretien.commentaires = commentaires;
-        if (score_entretien !== undefined) entretien.score_entretien = score_entretien;
-        if (criteres_evaluation !== undefined) entretien.criteres_evaluation = criteres_evaluation;
-        if (date_entretien !== undefined) entretien.date_entretien = new Date(date_entretien);
-        if (type_entretien !== undefined) entretien.type_entretien = type_entretien;
+        if (scoreEntretien !== undefined || score_entretien !== undefined) {
+            entretien.scoreEntretien = scoreEntretien !== undefined ? scoreEntretien : score_entretien;
+        }
+        if (criteresEvaluation !== undefined || criteres_evaluation !== undefined) {
+            entretien.criteresEvaluation = criteresEvaluation !== undefined ? criteresEvaluation : criteres_evaluation;
+        }
+        if (dateEntretien !== undefined || date_entretien !== undefined) {
+            entretien.dateEntretien = new Date(dateEntretien !== undefined ? dateEntretien : date_entretien);
+        }
+        if (typeEntretien !== undefined || type_entretien !== undefined) {
+            entretien.typeEntretien = typeEntretien !== undefined ? typeEntretien : type_entretien;
+        }
         if (duree !== undefined) entretien.duree = duree;
-        if (lien_visio !== undefined) entretien.lien_visio = lien_visio;
+        if (lienVisio !== undefined || lien_visio !== undefined) {
+            entretien.lienVisio = lienVisio !== undefined ? lienVisio : lien_visio;
+        }
 
         if (reponse !== undefined) {
             entretien.reponse = reponse;
 
-            const candidature = await condidatureModel.findOne({ _id: entretien.candidature, entreprise: req.entrepriseId });
+            const candidature = await candidatureModel.findOne({ _id: entretien.candidature, entreprise: req.entrepriseId });
             if (candidature) {
                 if (reponse === 'accepte') {
                     candidature.etape = 'accepte';
@@ -142,7 +184,7 @@ module.exports.updateEntretien = async (req, res) => {
         }
 
         await entretien.save();
-        res.status(200).json({ message: "Entretien updated successfully", data: entretien });
+        res.status(200).json({ message: 'Entretien updated successfully', data: normaliserEntretienSortie(entretien) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -158,7 +200,7 @@ module.exports.deleteEntretien = async (req, res) => {
         if (!deletedEntretien) {
             return res.status(404).json({ message: "Entretien not found" });
         }
-        res.status(200).json({ message: "Entretien deleted successfully", data: deletedEntretien });
+        res.status(200).json({ message: 'Entretien deleted successfully', data: normaliserEntretienSortie(deletedEntretien) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

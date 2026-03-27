@@ -5,9 +5,9 @@ const requireAuth = require('../middlewares/authMiddleware');
 const requireAdmin = require('../middlewares/requireAdmin');
 const requireTenant = require('../middlewares/requireTenant');
 
-router.post('/register', entrepriseController.registerEntreprise);
-router.get('/me', requireAuth, requireAdmin, requireTenant, entrepriseController.getMyEntreprise);
-router.put('/update', requireAuth, requireAdmin, requireTenant, entrepriseController.updateEntreprise);
-router.delete('/delete', requireAuth, requireAdmin, requireTenant, entrepriseController.deleteEntreprise);
+router.post('/registerEntreprise', entrepriseController.registerEntreprise);
+router.get('/getMyEntreprise', requireAuth, requireAdmin, requireTenant, entrepriseController.getMyEntreprise);
+router.put('/updateEntreprise', requireAuth, requireAdmin, requireTenant, entrepriseController.updateEntreprise);
+router.delete('/deleteEntreprise', requireAuth, requireAdmin, requireTenant, entrepriseController.deleteEntreprise);
 
 module.exports = router;

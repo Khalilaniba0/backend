@@ -1,5 +1,6 @@
 const requireAdmin = (req, res, next) => {
-    if (req.user.role !== "admin") {
+    const role = req.role || (req.utilisateur && req.utilisateur.role) || (req.user && req.user.role);
+    if (role !== 'admin') {
         return res.status(403).json({ message: "Access denied: Admin only" });
     }
     next();

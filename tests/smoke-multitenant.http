@@ -2,7 +2,7 @@
 @json = application/json
 
 ### 1) Register entreprise + admin (public)
-POST {{baseUrl}}/entreprise/register
+POST {{baseUrl}}/entreprise/registerEntreprise
 Content-Type: {{json}}
 
 {
@@ -38,7 +38,7 @@ Content-Type: {{json}}
 }
 
 ### 4) Create offre in same tenant (requires jwt cookie)
-POST {{baseUrl}}/offre/create
+POST {{baseUrl}}/offre/createOffre
 Content-Type: {{json}}
 
 {
@@ -53,7 +53,7 @@ Content-Type: {{json}}
 }
 
 ### 5) Public: list offres
-GET {{baseUrl}}/offre/getAll
+GET {{baseUrl}}/offre/getAllOffres
 
 ### 6) Public: postuler (replace offre id)
 POST {{baseUrl}}/condidature/postuler
@@ -68,10 +68,10 @@ Content-Type: {{json}}
 }
 
 ### 7) Public: suivi candidature (replace token)
-GET {{baseUrl}}/condidature/suivi/REPLACE_TOKEN_SUIVI
+GET {{baseUrl}}/condidature/getCondidatureBySuivi/REPLACE_TOKEN_SUIVI
 
 ### 8) Protected: get all condidatures (requires jwt cookie)
-GET {{baseUrl}}/condidature/getAll
+GET {{baseUrl}}/condidature/getAllCondidatures
 
 ### 9) Protected admin: my entreprise (requires jwt cookie)
-GET {{baseUrl}}/entreprise/me
+GET {{baseUrl}}/entreprise/getMyEntreprise

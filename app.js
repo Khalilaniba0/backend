@@ -7,11 +7,12 @@ var cors = require('cors');
 
 const http = require('http');
 const { connectToMongoDB } = require('./config/db');
-const userRouter = require('./routes/user.route');
+const utilisateurRouter = require('./routes/utilisateur.route');
 const offreEmploiRouter = require('./routes/offreEmploi.route');
-const condidatureRouter = require('./routes/condidature.route');
+const candidatureRouter = require('./routes/candidature.route');
 const entretienRouter = require('./routes/entretien.route');
 const entrepriseRouter = require('./routes/entreprise.route');
+const candidatRouter = require('./routes/candidat.route');
 
 require('dotenv').config();
 var app = express();
@@ -29,11 +30,12 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/user', userRouter);
+app.use('/user', utilisateurRouter);
 app.use('/offre', offreEmploiRouter);
-app.use('/condidature', condidatureRouter);
+app.use('/condidature', candidatureRouter);
 app.use('/entretien', entretienRouter);
 app.use('/entreprise', entrepriseRouter);
+app.use('/candidat', candidatRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

@@ -1,12 +1,13 @@
-const mongose = require('mongoose');
-const offreEmploiSchema = new mongose.Schema(
+const mongoose = require('mongoose');
+
+const offreEmploiSchema = new mongoose.Schema(
     {
-        post: String,
-        description : String,
-        status : { type : String , enum : ['open' ,'closed'] , default : 'open' },
-        entreprise: { type: mongose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
-        responsable: { type: mongose.Schema.Types.ObjectId, ref: 'User' },
-        requirements: [String],
+        poste: { type: String, alias: 'post' },
+        description: String,
+        statut: { type: String, enum: ['open', 'closed'], default: 'open', alias: 'status' },
+        entreprise: { type: mongoose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
+        responsable: { type: mongoose.Schema.Types.ObjectId, ref: 'Utilisateur' },
+        exigences: { type: [String], alias: 'requirements' },
         typeContrat: { type: String, enum: ['CDI', 'CDD', 'Stage', 'Alternance', 'Freelance'], default: 'CDI' },
         salaireMin: Number,
         salaireMax: Number,
@@ -15,6 +16,12 @@ const offreEmploiSchema = new mongose.Schema(
         departement: String,
         dateLimite: Date,
         niveauExperience: { type: String, enum: ['junior', 'mid', 'senior'], default: 'junior' }
-    },{timestamps:true});
-const OffreEmploi = mongose.model('OffreEmploi',offreEmploiSchema);
+    },
+    { timestamps: true }
+);
+
+offreEmploiSchema.set('toJSON', { virtuals: true });
+offreEmploiSchema.set('toObject', { virtuals: true });
+
+const OffreEmploi = mongoose.model('OffreEmploi', offreEmploiSchema, 'offreemplois');
 module.exports = OffreEmploi;
