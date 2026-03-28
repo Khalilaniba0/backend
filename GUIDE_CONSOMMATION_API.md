@@ -1,52 +1,66 @@
 # Guide de Consommation API
 
 Ce guide est centre sur la consommation pratique de l'API (frontend, Postman, tests manuels).
-Il est base sur les routes et middlewares actifs dans le code.
+Il est synchronise avec le code actuel (routes, middlewares, controllers, modeles).
 
 ## 1. Base URL et prerequis
 
-- Base URL locale: `http://localhost:5000`
+- Base URL locale: `http://localhost:${PORT}` (souvent `http://localhost:5000` en local)
 - Format JSON: `Content-Type: application/json`
-- Authentification RH/Admin: cookie HTTP-only nomme `jwt`
-- Authentification Candidat: cookie HTTP-only nomme `jwt_candidat`
-- Secret JWT: `JWT_SECRET_KEY` (et `JWT_SECRET` optionnel)
-- CORS backend:
+- Backend CORS:
   - `origin: http://localhost:3000`
   - `credentials: true`
 
-Important pour le frontend:
-- Toujours envoyer les requetes protegees avec `credentials: 'include'` (fetch) ou `withCredentials: true` (axios), sinon les cookies `jwt`/`jwt_candidat` ne seront pas envoyes.
+Cookies d'authentification:
+- RH/Admin: cookie HTTP-only `jwt`
+- Candidat: cookie HTTP-only `jwt_candidat`
 
-## 2. Flux recommande (ordre de consommation)
+Secrets JWT:
+- RH/Admin: `JWT_SECRET_KEY`
+- Candidat: `JWT_SECRET` (fallback possible sur `JWT_SECRET_KEY`)
 
-Flux RH/Admin (inchange):
+Important pour frontend:
+- Toujours envoyer les requetes protegees avec `credentials: 'include'` (fetch) ou `withCredentials: true` (axios), sinon les cookies ne seront pas envoyes.
 
+## 2. Convention de nommage des champs
+
+L'API accepte parfois plusieurs variantes (`snake_case` et `camelCase`) selon les endpoints.
+Pour eviter les erreurs, utiliser en priorite les champs suivants:
+
+- User RH/Admin: `name`, `password`
+- Candidat: `motDePasse`, `cv_url`, `portfolio_url`
+- Candidature: `lettre_motivation`, `score_ia`
+- Entretien: `date_entretien`, `type_entretien`, `lien_visio`, `score_entretien`, `criteres_evaluation`
+
+## 3. Flux recommande
+
+Flux RH/Admin:
 1. `POST /entreprise/registerEntreprise`
 2. `POST /user/login`
-3. Appels proteges RH/Admin
+3. Routes protegees RH/Admin
 4. `POST /user/logout`
 
 Flux Candidat:
-
 1. `POST /candidat/inscrire`
 2. `POST /candidat/connecter`
-3. `POST /condidature/postuler` (avec cookie `jwt_candidat`)
+3. `POST /condidature/postuler`
 4. `GET /condidature/mesCandidatures`
 5. `POST /candidat/deconnecter`
 
 Flux Visiteur:
+1. `GET /offre/getAllOffres`
+2. `GET /offre/getOffreById/:id`
 
-1. `GET /offre/getAllOffres` (sans cookie)
-2. `GET /offre/getOffreById/:id` (sans cookie)
+Note:
+- Le prefixe candidature est actuellement `/condidature` (orthographe conservee par le code).
 
-Pour postuler: s'inscrire d'abord en tant que candidat.
+## 4. Auth et autorisations
 
-## 3. Auth et autorisations
-
-Middlewares utilises:
+Middlewares:
 - `requireAuth`: verifie `req.cookies.jwt`
-- `requireTenant`: verifie la presence de `entrepriseId`
+- `requireTenant`: verifie/injecte `req.entrepriseId`
 - `requireAdmin`: reserve aux users role `admin`
+- `requireCandidat`: verifie `req.cookies.jwt_candidat`
 
 Regles globales:
 - Routes publiques: pas de cookie requis
@@ -54,12 +68,9 @@ Regles globales:
 - Routes protegees Candidat: cookie `jwt_candidat` requis
 - Routes admin: cookie `jwt` + role admin
 
-Cookie candidat: `jwt_candidat` (HTTP-only, distinct du cookie `jwt` RH/Admin)
-`requireCandidat`: verifie `req.cookies.jwt_candidat` et injecte `req.candidatId`
+## 5. Endpoints par module
 
-## 4. Endpoints par module
-
-## 4.0 Candidat
+## 5.0 Candidat (`/candidat`)
 
 ### POST /candidat/inscrire
 - Protection: Public
@@ -89,20 +100,24 @@ Cookie candidat: `jwt_candidat` (HTTP-only, distinct du cookie `jwt` RH/Admin)
 
 - Reponse: `200` + cookie `jwt_candidat`
 
-### GET /candidat/monProfil
-- Protection: requireCandidat (cookie `jwt_candidat`)
-- Reponse: `200` + profil sans `motDePasse`
-
-### PUT /candidat/mettreAJourProfil
-- Protection: requireCandidat
-- Body partiel: `nom`, `telephone`, `cv_url`, `portfolio_url`
+### POST /candidat/deconnecter
+- Protection: `requireCandidat`
 - Reponse: `200`
 
-## 4.1 Entreprise
+### GET /candidat/monProfil
+- Protection: `requireCandidat`
+- Reponse: `200`
+
+### PUT /candidat/mettreAJourProfil
+- Protection: `requireCandidat`
+- Body partiel accepte: `nom`, `telephone`, `cv_url`, `portfolio_url`
+- Reponse: `200`
+
+## 5.1 Entreprise (`/entreprise`)
 
 ### POST /entreprise/registerEntreprise
 - Protection: Public
-- But: creer l'entreprise et l'admin initial
+- But: creer l'entreprise + admin initial
 - Body minimal:
 
 ```json
@@ -115,23 +130,22 @@ Cookie candidat: `jwt_candidat` (HTTP-only, distinct du cookie `jwt` RH/Admin)
 }
 ```
 
-- Reponse succes: `201`
+- Reponse: `201`
 
 ### GET /entreprise/getMyEntreprise
-- Protection: Auth + Admin + Tenant
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireAdmin` + `requireTenant`
+- Reponse: `200`
 
 ### PUT /entreprise/updateEntreprise
-- Protection: Auth + Admin + Tenant
-- Body partiel accepte (ex: `nom`, `email`, `adresse`, `secteur`, `logo`, `siteWeb`, `plan`, `isActive`)
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireAdmin` + `requireTenant`
+- Body partiel: `nom`, `email`, `adresse`, `secteur`, `logo`, `siteWeb`, `plan`, `isActive`
+- Reponse: `200`
 
 ### DELETE /entreprise/deleteEntreprise
-- Protection: Auth + Admin + Tenant
-- Effet: supprime aussi users, offres, candidatures, entretiens du tenant
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireAdmin` + `requireTenant`
+- Reponse: `200`
 
-## 4.2 User
+## 5.2 User (`/user`)
 
 ### POST /user/login
 - Protection: Public
@@ -144,22 +158,22 @@ Cookie candidat: `jwt_candidat` (HTTP-only, distinct du cookie `jwt` RH/Admin)
 }
 ```
 
-- Reponse succes: `200` + cookie `jwt`
+- Reponse: `200` + cookie `jwt`
 
 ### POST /user/logout
-- Protection: Auth
-- Reponse succes: `200`
+- Protection: `requireAuth`
+- Reponse: `200`
 
 ### GET /user/getAllUsers
-- Protection: Auth + Admin + Tenant + logMiddleware
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireAdmin` + `requireTenant` + `logMiddleware`
+- Reponse: `200`
 
 ### GET /user/getUserById/:id
-- Protection: Auth + Tenant
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireTenant` + `logMiddleware`
+- Reponse: `200`
 
 ### POST /user/createRh
-- Protection: Auth + Admin + Tenant
+- Protection: `requireAuth` + `requireAdmin` + `requireTenant`
 - Body minimal:
 
 ```json
@@ -170,10 +184,10 @@ Cookie candidat: `jwt_candidat` (HTTP-only, distinct du cookie `jwt` RH/Admin)
 }
 ```
 
-- Reponse succes: `201`
+- Reponse: `201`
 
 ### POST /user/createAdmin
-- Protection: Auth + Admin + Tenant
+- Protection: `requireAuth` + `requireAdmin` + `requireTenant`
 - Body minimal:
 
 ```json
@@ -184,37 +198,37 @@ Cookie candidat: `jwt_candidat` (HTTP-only, distinct du cookie `jwt` RH/Admin)
 }
 ```
 
-- Reponse succes: `201`
+- Reponse: `201`
 
 ### PUT /user/updateUser/:id
-- Protection: Auth + Tenant
-- Regle: admin peut modifier n'importe quel user du tenant, sinon seulement son propre profil
-- Body partiel accepte (ex: `name`, `tel`, `photo`, `adresse`, `competences`, `formation`, `linkedin`, `departement`)
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireTenant`
+- Regle: admin peut modifier tout user du tenant; sinon user modifie son propre profil
+- Body partiel: `name`/`nom`, `tel`, `photo`, `adresse`, `competences`, `formation`, `linkedin`, `departement`
+- Reponse: `200`
 
 ### DELETE /user/deleteUser/:id
-- Protection: Auth + Admin + Tenant
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireAdmin` + `requireTenant`
+- Reponse: `200`
 
-## 4.3 Offre Emploi
+## 5.3 Offre Emploi (`/offre`)
 
 ### GET /offre/getAllOffres
 - Protection: Public
-- Query params supportes:
+- Query params optionnels:
   - `typeContrat`
   - `localisation`
-  - `status`
+  - `status` (ou `statut`)
   - `departement`
   - `modeContrat`
   - `niveauExperience`
-- Reponse succes: `200`
+- Reponse: `200`
 
 ### GET /offre/getOffreById/:id
 - Protection: Public
-- Reponse succes: `200`
+- Reponse: `200`
 
 ### POST /offre/createOffre
-- Protection: Auth + Tenant
+- Protection: `requireAuth` + `requireTenant`
 - Body exemple:
 
 ```json
@@ -230,71 +244,65 @@ Cookie candidat: `jwt_candidat` (HTTP-only, distinct du cookie `jwt` RH/Admin)
 }
 ```
 
-- Reponse succes: `201`
+- Reponse: `201`
 
 ### PUT /offre/updateOffre/:id
-- Protection: Auth + Tenant
+- Protection: `requireAuth` + `requireTenant`
 - Body partiel accepte
-- Reponse succes: `200`
+- Reponse: `200`
 
 ### PUT /offre/updateOffreStatus/:id
-- Protection: Auth + Tenant
-- Effet: toggle automatique `open <-> closed`
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireTenant`
+- Effet: toggle `open <-> closed`
+- Reponse: `200`
 
 ### DELETE /offre/deleteOffreById/:id
-- Protection: Auth + Tenant
-- Reponse succes: `200`
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
 
-## 4.4 Condidature
+## 5.4 Condidature (`/condidature`)
 
 ### POST /condidature/postuler
-- Protection: requireCandidat (cookie `jwt_candidat`)
-- Type: `multipart/form-data` si envoi de CV (champ fichier: `cv_url`)
-- Champs requis: `offre`
-- Regles metier: l'offre doit etre `open` et non expiree (`dateLimite` non depassee)
-- Reponse succes: `201` + `tokenSuivi` + `candidatureId`
-
-### GET /condidature/getCondidatureBySuivi/:token
-- Protection: Public
-- Reponse: etape + post offre + date
-
-Exemple sans authentification:
-
-```http
-GET /condidature/getCondidatureBySuivi/REPLACE_TOKEN_SUIVI
-```
-
-### GET /condidature/getAllCondidatures
-- Protection: Auth + Tenant
-- Query params optionnels:
-  - `offre`
-  - `etape`
-- Reponse succes: `200`
+- Protection: `requireCandidat`
+- Type: `multipart/form-data` supporte
+- Fichier CV: champ `cv_url`
+- Champ requis: `offre`
+- Regles metier:
+  - une seule candidature par candidat et par offre
+  - offre doit etre `open`
+  - `dateLimite` non depassee
+- Reponse: `201`
 
 ### GET /condidature/mesCandidatures
-- Protection: requireCandidat
-- Retourne uniquement les candidatures du candidat connecte
+- Protection: `requireCandidat`
+- Reponse: `200`
 
 ### DELETE /condidature/annuler/:id
-- Protection: requireCandidat
-- Fonctionne uniquement si `etape === 'soumise'`
+- Protection: `requireCandidat`
+- Condition: uniquement si `etape === soumise`
+- Reponse: `200`
 
 ### PUT /condidature/modifier/:id
-- Protection: requireCandidat
-- Fonctionne uniquement si `etape === 'soumise'`
-- Champs modifiables: `lettre_motivation`, `cv_url`
+- Protection: `requireCandidat`
+- Condition: uniquement si `etape === soumise`
+- Champs modifiables: `lettre_motivation` (ou `lettreMotivation`), `cv_url` (string)
+- Reponse: `200`
 
-### GET /condidature/getCondidatureById/:id
-- Protection: Auth + Tenant
-- Reponse succes: `200`
+### GET /condidature/getAllCandidatures
+- Protection: `requireAuth` + `requireTenant`
+- Query params optionnels: `offre`, `etape`
+- Reponse: `200`
 
-### GET /condidature/getCondidaturesByOffre/:offreId
-- Protection: Auth + Tenant
-- Reponse succes: `200` (tries par `score_ia` decroissant)
+### GET /condidature/getCandidatureById/:id
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
 
-### PUT /condidature/updateCondidatureEtape/:id
-- Protection: Auth + Tenant
+### GET /condidature/getCandidaturesByOffre/:offreId
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
+
+### PUT /condidature/updateCandidatureEtape/:id
+- Protection: `requireAuth` + `requireTenant`
 - Body possible:
 
 ```json
@@ -309,21 +317,27 @@ GET /condidature/getCondidatureBySuivi/REPLACE_TOKEN_SUIVI
   - `preselectionne -> entretien_planifie | refuse`
   - `entretien_planifie -> entretien_passe | refuse`
   - `entretien_passe -> accepte | refuse`
+- Reponse: `200`
 
-### DELETE /condidature/deleteCondidatureById/:id
-- Protection: Auth + Tenant
-- Reponse succes: `200`
+### DELETE /condidature/deleteCandidatureById/:id
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
 
-## 4.5 Entretien
+Note importante:
+- A ce stade, il n'existe pas de route publique de suivi par token (ex: `/getCondidatureBySuivi/:token`) dans le code actuel.
+
+## 5.5 Entretien (`/entretien`)
 
 ### GET /entretien/getAllEntretiens
-- Protection: Auth + Tenant
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
 
 ### GET /entretien/getEntretienById/:id
-- Protection: Auth + Tenant
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
 
 ### POST /entretien/createEntretien
-- Protection: Auth + Tenant
+- Protection: `requireAuth` + `requireTenant`
 - Body minimal:
 
 ```json
@@ -334,20 +348,31 @@ GET /condidature/getCondidatureBySuivi/REPLACE_TOKEN_SUIVI
 ```
 
 - Champs optionnels: `type_entretien`, `duree`, `lien_visio`
-- Validation: evite les conflits d'horaire (responsable et candidature)
-- Effet: met automatiquement la candidature a `entretien_planifie`
+- Validation: gestion des conflits d'horaire (responsable et candidature)
+- Effet: candidature associee passe a `entretien_planifie`
+- Reponse: `201`
 
 ### PUT /entretien/updateEntretien/:id
-- Protection: Auth + Tenant
-- Champs modifiables: `commentaires`, `score_entretien`, `criteres_evaluation`, `reponse`, `date_entretien`, `type_entretien`, `duree`, `lien_visio`
-- Si `reponse` vaut `accepte` ou `refuse`, la candidature associee est synchronisee
+- Protection: `requireAuth` + `requireTenant`
+- Champs modifiables:
+  - `commentaires`
+  - `score_entretien` (ou `scoreEntretien`)
+  - `criteres_evaluation` (ou `criteresEvaluation`)
+  - `reponse`
+  - `date_entretien` (ou `dateEntretien`)
+  - `type_entretien` (ou `typeEntretien`)
+  - `duree`
+  - `lien_visio` (ou `lienVisio`)
+- Si `reponse` vaut `accepte` ou `refuse`, etape candidature synchronisee
+- Reponse: `200`
 
 ### DELETE /entretien/deleteEntretienById/:id
-- Protection: Auth + Tenant
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
 
-## 5. Exemples de consommation frontend
+## 6. Exemples frontend
 
-### Fetch (avec cookie)
+### Fetch avec cookies
 
 ```js
 const res = await fetch('http://localhost:5000/entreprise/getMyEntreprise', {
@@ -358,28 +383,7 @@ const res = await fetch('http://localhost:5000/entreprise/getMyEntreprise', {
 const data = await res.json();
 ```
 
-```js
-// Inscription candidat
-await fetch('http://localhost:5000/candidat/inscrire', {
-  method: 'POST',
-  credentials: 'include',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ nom: 'Ahmed', email: 'ahmed@ex.com', motDePasse: 'Ahmed123!' })
-});
-
-// Postuler (apres connexion, avec FormData pour cv_url)
-const form = new FormData();
-form.append('offre', 'OFFRE_ID');
-form.append('lettre_motivation', 'Je suis motive...');
-form.append('cv_url', fichierCV);
-await fetch('http://localhost:5000/condidature/postuler', {
-  method: 'POST',
-  credentials: 'include',
-  body: form
-});
-```
-
-### Axios (avec cookie)
+### Axios avec cookies
 
 ```js
 import axios from 'axios';
@@ -392,31 +396,12 @@ const api = axios.create({
 const { data } = await api.get('/offre/getAllOffres');
 ```
 
-## 6. Codes de retour frequents
+## 7. Codes de retour frequents
 
 - `200`: succes lecture/mise a jour/suppression
 - `201`: creation ok
-- `400`: donnees invalides (ex: champs requis, transition etape invalide)
-- `401`: non authentifie (token absent/invalide)
-- `403`: acces interdit (role/tenant)
+- `400`: donnees invalides
+- `401`: non authentifie
+- `403`: acces interdit
 - `404`: ressource introuvable
 - `500`: erreur serveur
-
-## 7. Checklist rapide de debug consommation
-
-1. Verifier que login est fait et que le cookie `jwt` est bien present.
-2. Verifier `credentials: 'include'` ou `withCredentials: true`.
-3. Verifier la route exacte (ex: `/offre/getAllOffres`, pas `/offre/getAll`).
-4. Verifier que l'ID passe en parametre existe.
-5. Verifier que le role est admin pour les routes admin.
-6. Verifier que la ressource appartient au meme tenant.
-7. Verifier les transitions de condidature (`soumise` pour annuler/modifier cote candidat).
-8. Pour les routes candidat: verifier que le cookie `jwt_candidat` est present (distinct du cookie `jwt` RH/Admin).
-9. Un visiteur ne peut PAS postuler sans s'inscrire d'abord.
-
-## 8. Fichiers de reference projet
-
-- Routes: `routes/*.route.js`
-- Controllers: `controllers/*.controller.js`
-- Exemple test HTTP: `tests/smoke-multitenant.http`
-- Documentation metier existante: `DOCUMENTATION_API_ET_MODELES.md`

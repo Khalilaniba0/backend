@@ -15,11 +15,10 @@ const candidatureSchema = new mongoose.Schema({
         enum: ['soumise', 'preselectionne', 'entretien_planifie', 'entretien_passe', 'accepte', 'refuse'],
         default: 'soumise'
     },
-    tokenSuivi: { type: String, unique: true }
 }, { timestamps: true });
 
 candidatureSchema.set('toJSON', { virtuals: true });
 candidatureSchema.set('toObject', { virtuals: true });
 
-const Candidature = mongoose.model('Candidature', candidatureSchema, 'condidatures');
+const Candidature = mongoose.model('Candidature', candidatureSchema, 'candidatures');
 module.exports = Candidature;

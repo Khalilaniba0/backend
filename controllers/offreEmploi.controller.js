@@ -1,5 +1,22 @@
 const offreEmploiModel = require('../models/offreEmploi.model');
 
+const construireFiltreOffres = (query = {}, entrepriseId = null) => {
+    const filter = {};
+
+    if (entrepriseId) {
+        filter.entreprise = entrepriseId;
+    }
+
+    if (query.typeContrat) filter.typeContrat = query.typeContrat;
+    if (query.localisation) filter.localisation = { $regex: query.localisation, $options: 'i' };
+    if (query.status || query.statut) filter.statut = query.statut || query.status;
+    if (query.departement) filter.departement = { $regex: query.departement, $options: 'i' };
+    if (query.modeContrat) filter.modeContrat = query.modeContrat;
+    if (query.niveauExperience) filter.niveauExperience = query.niveauExperience;
+
+    return filter;
+};
+
 const normaliserOffreSortie = (doc) => {
     const offre = doc.toObject ? doc.toObject({ virtuals: true }) : doc;
     return {
@@ -12,18 +29,30 @@ const normaliserOffreSortie = (doc) => {
 
 module.exports.getAllOffres = async (req, res) => {
     try {
-        const filter = {};
-        if (req.query.typeContrat) filter.typeContrat = req.query.typeContrat;
-        if (req.query.localisation) filter.localisation = { $regex: req.query.localisation, $options: 'i' };
-        if (req.query.status || req.query.statut) filter.statut = req.query.statut || req.query.status;
-        if (req.query.departement) filter.departement = { $regex: req.query.departement, $options: 'i' };
-        if (req.query.modeContrat) filter.modeContrat = req.query.modeContrat;
-        if (req.query.niveauExperience) filter.niveauExperience = req.query.niveauExperience;
+        const filter = construireFiltreOffres(req.query);
 
         const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
         res.status(200).json({ message: 'Offres retrieved successfully', data: offres.map(normaliserOffreSortie) });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving offres', error: error.message });
+    }
+};
+
+module.exports.getOffresByEntreprise = async (req, res) => {
+    try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: "Access denied: tenant is required" });
+        }
+
+        const filter = construireFiltreOffres(req.query, req.entrepriseId);
+        const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
+
+        return res.status(200).json({
+            message: 'Entreprise offres retrieved successfully',
+            data: offres.map(normaliserOffreSortie)
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Error retrieving entreprise offres', error: error.message });
     }
 };
 

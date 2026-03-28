@@ -6,7 +6,6 @@ const requireCandidat = require('../middlewares/requireCandidat');
 const upload = require('../middlewares/uploadfile');
 const {
 	postuler,
-	getCandidatureBySuivi,
 	mesCandidatures,
 	annulerCandidature,
 	modifierCandidature,
@@ -17,8 +16,6 @@ const {
 	deleteCandidatureById
 } = require('../controllers/candidature.controller');
 
-// Public
-router.get('/getCondidatureBySuivi/:token', getCandidatureBySuivi);
 
 // Protege candidat
 router.post('/postuler', requireCandidat, upload.single('cv_url'), postuler);
@@ -27,10 +24,10 @@ router.delete('/annuler/:id', requireCandidat, annulerCandidature);
 router.put('/modifier/:id', requireCandidat, modifierCandidature);
 
 // Protege RH/Admin
-router.get('/getAllCondidatures', requireAuth, requireTenant, getAllCandidatures);
-router.get('/getCondidatureById/:id', requireAuth, requireTenant, getCandidatureById);
-router.get('/getCondidaturesByOffre/:offreId', requireAuth, requireTenant, getCandidaturesByOffre);
-router.put('/updateCondidatureEtape/:id', requireAuth, requireTenant, updateCandidatureEtape);
-router.delete('/deleteCondidatureById/:id', requireAuth, requireTenant, deleteCandidatureById);
+router.get('/getAllCandidatures', requireAuth, requireTenant, getAllCandidatures);
+router.get('/getCandidatureById/:id', requireAuth, requireTenant, getCandidatureById);
+router.get('/getCandidaturesByOffre/:offreId', requireAuth, requireTenant, getCandidaturesByOffre);
+router.put('/updateCandidatureEtape/:id', requireAuth, requireTenant, updateCandidatureEtape);
+router.delete('/deleteCandidatureById/:id', requireAuth, requireTenant, deleteCandidatureById);
 
 module.exports = router;

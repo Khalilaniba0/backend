@@ -162,26 +162,8 @@ module.exports.modifierCandidature = async (req, res) => {
     }
 };
 
-module.exports.getCandidatureBySuivi = async (req, res) => {
-    try {
-        const { token } = req.params;
-        const candidature = await candidatureModel.findOne({ tokenSuivi: token }).populate('offre', 'poste post');
 
-        if (!candidature) {
-            return res.status(404).json({ message: 'Condidature not found' });
-        }
 
-        return res.status(200).json({
-            etape: candidature.etape,
-            postOffre: candidature.offre ? (candidature.offre.poste || candidature.offre.post) : null,
-            dateSoumission: candidature.createdAt
-        });
-    } catch (error) {
-        return res.status(500).json({ message: error.message });
-    }
-};
-
-module.exports.getCondidatureBySuivi = module.exports.getCandidatureBySuivi;
 
 module.exports.getAllCandidatures = async (req, res) => {
     try {
@@ -199,7 +181,7 @@ module.exports.getAllCandidatures = async (req, res) => {
             .sort({ scoreIA: -1 });
 
         return res.status(200).json({
-            message: 'Condidatures retrieved successfully',
+            message: 'Candidatures retrieved successfully',
             data: candidatures.map(normaliserCandidatureSortie)
         });
     } catch (error) {
@@ -220,16 +202,16 @@ module.exports.getCandidatureById = async (req, res) => {
             .populate('offre');
 
         if (!candidature) {
-            return res.status(404).json({ message: 'Condidature not found' });
+            return res.status(404).json({ message: 'Candidature not found' });
         }
 
-        return res.status(200).json({ message: 'Condidature retrieved successfully', data: normaliserCandidatureSortie(candidature) });
+        return res.status(200).json({ message: 'Candidature retrieved successfully', data: normaliserCandidatureSortie(candidature) });
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }
 };
 
-module.exports.getCondidatureById = module.exports.getCandidatureById;
+module.exports.getCandidatureById = module.exports.getCandidatureById;
 
 module.exports.getCandidaturesByOffre = async (req, res) => {
     try {
@@ -261,7 +243,7 @@ module.exports.getCandidaturesByOffre = async (req, res) => {
     }
 };
 
-module.exports.getCondidaturesByOffre = module.exports.getCandidaturesByOffre;
+module.exports.getCandidaturesByOffre = module.exports.getCandidaturesByOffre;
 
 module.exports.updateCandidatureEtape = async (req, res) => {
     try {
@@ -271,7 +253,7 @@ module.exports.updateCandidatureEtape = async (req, res) => {
 
         const candidature = await candidatureModel.findOne({ _id: req.params.id, entreprise: req.entrepriseId });
         if (!candidature) {
-            return res.status(404).json({ message: 'Condidature not found' });
+            return res.status(404).json({ message: 'Candidature not found' });
         }
 
         const { etape, score_ia, scoreIA } = req.body;
@@ -292,13 +274,13 @@ module.exports.updateCandidatureEtape = async (req, res) => {
         }
 
         await candidature.save();
-        return res.status(200).json({ message: 'Condidature updated successfully', data: normaliserCandidatureSortie(candidature) });
+        return res.status(200).json({ message: 'Candidature updated successfully', data: normaliserCandidatureSortie(candidature) });
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }
 };
 
-module.exports.updateCondidatureEtape = module.exports.updateCandidatureEtape;
+module.exports.updateCandidatureEtape = module.exports.updateCandidatureEtape;
 
 module.exports.deleteCandidatureById = async (req, res) => {
     try {
@@ -308,13 +290,13 @@ module.exports.deleteCandidatureById = async (req, res) => {
 
         const candidature = await candidatureModel.findOneAndDelete({ _id: req.params.id, entreprise: req.entrepriseId });
         if (!candidature) {
-            return res.status(404).json({ message: 'Condidature not found' });
+            return res.status(404).json({ message: 'Candidature not found' });
         }
 
-        return res.status(200).json({ message: 'Condidature deleted successfully' });
+        return res.status(200).json({ message: 'Candidature deleted successfully' });
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }
 };
 
-module.exports.deleteCondidatureById = module.exports.deleteCandidatureById;
+module.exports.deleteCandidatureById = module.exports.deleteCandidatureById;
