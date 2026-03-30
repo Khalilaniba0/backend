@@ -13,6 +13,8 @@ const candidatureRouter = require('./routes/candidature.route');
 const entretienRouter = require('./routes/entretien.route');
 const entrepriseRouter = require('./routes/entreprise.route');
 const candidatRouter = require('./routes/candidat.route');
+const notificationRouter = require('./routes/notification.route');
+const { startNotificationCron } = require('./notificationCron');
 
 require('dotenv').config();
 var app = express();
@@ -32,10 +34,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/user', utilisateurRouter);
 app.use('/offre', offreEmploiRouter);
-app.use('/condidature', candidatureRouter);
+app.use('/candidature', candidatureRouter);
 app.use('/entretien', entretienRouter);
 app.use('/entreprise', entrepriseRouter);
 app.use('/candidat', candidatRouter);
+app.use('/notification', notificationRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -54,5 +57,8 @@ app.use(function(err, req, res, next) {
 const server = http.createServer(app);
 server.listen(process.env.PORT, () => {
   connectToMongoDB();
+  if (process.env.NODE_ENV !== 'test') {
+    startNotificationCron();
+  }
   console.log(`Server is running on port ${process.env.PORT}`);
 });

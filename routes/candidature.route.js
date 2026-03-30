@@ -13,6 +13,7 @@ const {
 	getCandidatureById,
 	getCandidaturesByOffre,
 	updateCandidatureEtape,
+	refuserCandidature,
 	deleteCandidatureById
 } = require('../controllers/candidature.controller');
 
@@ -28,6 +29,7 @@ router.get('/getAllCandidatures', requireAuth, requireTenant, getAllCandidatures
 router.get('/getCandidatureById/:id', requireAuth, requireTenant, getCandidatureById);
 router.get('/getCandidaturesByOffre/:offreId', requireAuth, requireTenant, getCandidaturesByOffre);
 router.put('/updateCandidatureEtape/:id', requireAuth, requireTenant, updateCandidatureEtape);
+router.put('/refuserCandidature/:id', requireAuth, requireTenant, refuserCandidature);
 router.delete('/deleteCandidatureById/:id', requireAuth, requireTenant, deleteCandidatureById);
 
 module.exports = router;

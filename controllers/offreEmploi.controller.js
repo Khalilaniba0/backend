@@ -56,6 +56,37 @@ module.exports.getOffresByEntreprise = async (req, res) => {
     }
 };
 
+module.exports.getOffresByEntrepriseId = async (req, res) => {
+    try {
+        const entrepriseId = req.params.entrepriseId;
+        if (!entrepriseId) {
+            return res.status(400).json({ message: "Entreprise ID is required" });
+        }
+
+        const filter = construireFiltreOffres(req.query, entrepriseId);
+        const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
+
+        return res.status(200).json({
+            message: 'Entreprise offres retrieved successfully',
+            data: offres.map(normaliserOffreSortie)
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Error retrieving entreprise offres', error: error.message });
+    }
+};
+
+module.exports.getOffresDisponibles = async (req, res) => {
+    try {
+        const filter = construireFiltreOffres(req.query);
+        filter.statut = 'open';
+
+        const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
+        res.status(200).json({ message: 'Offres disponibles retrieved successfully', data: offres.map(normaliserOffreSortie) });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving offres', error: error.message });
+    }
+};
+
 module.exports.getOffreById = async (req, res) => {
     try {
         const offreId = req.params.id;

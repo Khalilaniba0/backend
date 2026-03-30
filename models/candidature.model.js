@@ -10,9 +10,15 @@ const candidatureSchema = new mongoose.Schema({
     entreprise: { type: mongoose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
     offre: { type: mongoose.Schema.Types.ObjectId, ref: 'OffreEmploi', required: true },
     scoreIA: { type: Number, default: null, alias: 'score_ia' },
+    dateEntretien: { type: Date, default: null, alias: 'date_entretien' },
+    typeEntretien: {
+        type: String,
+        default: null,
+        alias: 'type_entretien'
+    },
     etape: {
         type: String,
-        enum: ['soumise', 'preselectionne', 'entretien_planifie', 'entretien_passe', 'accepte', 'refuse'],
+        enum: ['soumise', 'preselectionne', 'test_technique', 'entretien_planifie', 'entretien_passe', 'offre', 'accepte', 'refuse'],
         default: 'soumise'
     },
 }, { timestamps: true });
