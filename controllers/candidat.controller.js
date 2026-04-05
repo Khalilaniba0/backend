@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 const Candidat = require('../models/candidat.model');
 
-const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
-const CANDIDAT_JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;
+const COOKIE_MAX_AGE =  24 * 60 * 60 * 1000;
+const CANDIDAT_JWT_SECRET = process.env.JWT_SECRET_KEY;
 
 const createCandidatToken = (candidat) => {
   if (!CANDIDAT_JWT_SECRET) {
@@ -14,6 +16,27 @@ const createCandidatToken = (candidat) => {
     CANDIDAT_JWT_SECRET,
     { expiresIn: '7d' }
   );
+};
+
+const supprimerAncienCvLocal = async (cvUrl) => {
+  if (!cvUrl || typeof cvUrl !== 'string' || cvUrl.includes('://')) {
+    return;
+  }
+
+  const nomFichier = path.basename(cvUrl);
+  if (nomFichier !== cvUrl) {
+    return;
+  }
+
+  const cheminFichier = path.join(__dirname, '..', 'public', 'cv', nomFichier);
+
+  try {
+    await fs.promises.unlink(cheminFichier);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error(`Impossible de supprimer l'ancien CV ${nomFichier}:`, error.message);
+    }
+  }
 };
 
 module.exports.inscrire = async (req, res) => {
@@ -121,19 +144,53 @@ module.exports.monProfil = async (req, res) => {
 
 module.exports.mettreAJourProfil = async (req, res) => {
   try {
-    const { nom, telephone, cv_url, portfolio_url } = req.body;
+    const candidatActuel = await Candidat.findById(req.candidatId).select('cv_url');
+    if (!candidatActuel) {
+      return res.status(404).json({ message: 'Candidat introuvable.' });
+    }
+
     const updateData = {};
+    const protectedFields = new Set(['_id', '__v', 'createdAt', 'updatedAt', 'motDePasse', 'email']);
+    const editableFields = Object.keys(Candidat.schema.paths).filter((field) => !protectedFields.has(field));
 
-    if (nom !== undefined) updateData.nom = nom;
-    if (telephone !== undefined) updateData.telephone = telephone;
-    if (cv_url !== undefined) updateData.cv_url = cv_url;
-    if (portfolio_url !== undefined) updateData.portfolio_url = portfolio_url;
+    for (const field of editableFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
 
-    const candidat = await Candidat.findByIdAndUpdate(req.candidatId, updateData, { new: true })
+    const payloadAliases = {
+      cvUrl: 'cv_url',
+      portfolioUrl: 'portfolio_url'
+    };
+
+    for (const [incomingField, targetField] of Object.entries(payloadAliases)) {
+      if (req.body[incomingField] !== undefined && updateData[targetField] === undefined) {
+        updateData[targetField] = req.body[incomingField];
+      }
+    }
+
+    // If the request includes an uploaded file (multipart/form-data), persist it in cv_url.
+    if (req.file && req.file.filename) {
+      updateData.cv_url = req.file.filename;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'Aucune donnee a mettre a jour.' });
+    }
+
+    const candidat = await Candidat.findByIdAndUpdate(
+      req.candidatId,
+      updateData,
+      { new: true, runValidators: true }
+    )
       .select('-motDePasse');
 
-    if (!candidat) {
-      return res.status(404).json({ message: 'Candidat introuvable.' });
+    const ancienCv = candidatActuel.cv_url;
+    const nouveauCv = updateData.cv_url;
+
+    if (nouveauCv !== undefined && ancienCv && ancienCv !== nouveauCv) {
+      await supprimerAncienCvLocal(ancienCv);
     }
 
     return res.status(200).json({ message: 'Profil candidat mis a jour.', data: candidat });

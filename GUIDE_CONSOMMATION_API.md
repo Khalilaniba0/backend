@@ -1,17 +1,17 @@
-# Guide de Consommation API
+﻿# Guide de Consommation API
 
-Ce guide est centre sur la consommation pratique de l'API (frontend, Postman, tests manuels).
+Ce guide est centre sur la consommation pratique de l API (frontend, Postman, tests manuels).
 Il est synchronise avec le code actuel (routes, middlewares, controllers, modeles).
 
 ## 1. Base URL et prerequis
 
-- Base URL locale: `http://localhost:${PORT}` (souvent `http://localhost:5000` en local)
+- Base URL locale: `http://localhost:${PORT}` (souvent `http://localhost:5000`)
 - Format JSON: `Content-Type: application/json`
 - Backend CORS:
   - `origin: http://localhost:3000`
   - `credentials: true`
 
-Cookies d'authentification:
+Cookies d authentification:
 - RH/Admin: cookie HTTP-only `jwt`
 - Candidat: cookie HTTP-only `jwt_candidat`
 
@@ -24,7 +24,7 @@ Important pour frontend:
 
 ## 2. Convention de nommage des champs
 
-L'API accepte parfois plusieurs variantes (`snake_case` et `camelCase`) selon les endpoints.
+L API accepte plusieurs variantes (`snake_case` et `camelCase`) selon les endpoints.
 Pour eviter les erreurs, utiliser en priorite les champs suivants:
 
 - User RH/Admin: `name`, `password`
@@ -32,7 +32,7 @@ Pour eviter les erreurs, utiliser en priorite les champs suivants:
 - Candidature: `lettre_motivation`, `score_ia`
 - Entretien: `date_entretien`, `type_entretien`, `lien_visio`, `score_entretien`, `criteres_evaluation`
 
-## 3. Flux recommande
+## 3. Flux recommandes
 
 Flux RH/Admin:
 1. `POST /entreprise/registerEntreprise`
@@ -43,16 +43,15 @@ Flux RH/Admin:
 Flux Candidat:
 1. `POST /candidat/inscrire`
 2. `POST /candidat/connecter`
-3. `POST /condidature/postuler`
-4. `GET /condidature/mesCandidatures`
-5. `POST /candidat/deconnecter`
+3. `PUT /candidat/mettreAJourProfil` (optionnel, avec CV)
+4. `POST /candidature/postuler`
+5. `GET /candidature/mesCandidatures`
+6. `POST /candidat/deconnecter`
 
 Flux Visiteur:
 1. `GET /offre/getAllOffres`
-2. `GET /offre/getOffreById/:id`
-
-Note:
-- Le prefixe candidature est actuellement `/condidature` (orthographe conservee par le code).
+2. `GET /offre/getOffresDisponibles`
+3. `GET /offre/getOffreById/:id`
 
 ## 4. Auth et autorisations
 
@@ -110,14 +109,17 @@ Regles globales:
 
 ### PUT /candidat/mettreAJourProfil
 - Protection: `requireCandidat`
-- Body partiel accepte: `nom`, `telephone`, `cv_url`, `portfolio_url`
+- Type: `multipart/form-data` possible avec `cv_url`
+- Body partiel possible:
+  - `nom`, `telephone`, `cv_url`, `portfolio_url`
+  - ou alias `cvUrl`, `portfolioUrl`
 - Reponse: `200`
 
 ## 5.1 Entreprise (`/entreprise`)
 
 ### POST /entreprise/registerEntreprise
 - Protection: Public
-- But: creer l'entreprise + admin initial
+- But: creer l entreprise + admin initial
 - Body minimal:
 
 ```json
@@ -202,8 +204,32 @@ Regles globales:
 
 ### PUT /user/updateUser/:id
 - Protection: `requireAuth` + `requireTenant`
-- Regle: admin peut modifier tout user du tenant; sinon user modifie son propre profil
-- Body partiel: `name`/`nom`, `tel`, `photo`, `adresse`, `competences`, `formation`, `linkedin`, `departement`
+- Regle:
+  - admin peut modifier tout user du tenant
+  - sinon, user ne peut modifier que son propre profil
+- Body partiel accepte:
+  - `name`/`nom`, `email`, `tel`/`telephone`, `photo`, `adresse`/`address`
+  - `competences`, `formation`, `linkedin`, `departement`
+  - changement mot de passe possible via `newPassword` (+ ancien mot de passe si non-admin)
+  - champs admin: `role`, `block`/`bloque`, `loginAttempts`/`tentativesConnexion`
+- Reponse: `200`
+
+### PUT /user/updateMyProfile
+- Protection: `requireAuth` + `requireTenant`
+- But: wrapper de `updateUser` sur l utilisateur courant
+- Reponse: `200`
+
+### PUT /user/changePassword
+- Protection: `requireAuth` + `requireTenant`
+- Body requis:
+
+```json
+{
+  "oldPassword": "Ancien123!",
+  "newPassword": "Nouveau123!"
+}
+```
+
 - Reponse: `200`
 
 ### DELETE /user/deleteUser/:id
@@ -221,6 +247,19 @@ Regles globales:
   - `departement`
   - `modeContrat`
   - `niveauExperience`
+- Reponse: `200`
+
+### GET /offre/getOffresDisponibles
+- Protection: Public
+- Effet: filtre `statut = open`
+- Reponse: `200`
+
+### GET /offre/getOffresByEntreprise
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
+
+### GET /offre/getOffresByEntreprise/:entrepriseId
+- Protection: Public
 - Reponse: `200`
 
 ### GET /offre/getOffreById/:id
@@ -258,11 +297,12 @@ Regles globales:
 
 ### DELETE /offre/deleteOffreById/:id
 - Protection: `requireAuth` + `requireTenant`
+- Effet: supprime d abord les candidatures liees, puis l offre
 - Reponse: `200`
 
-## 5.4 Condidature (`/condidature`)
+## 5.4 Candidature (`/candidature`)
 
-### POST /condidature/postuler
+### POST /candidature/postuler
 - Protection: `requireCandidat`
 - Type: `multipart/form-data` supporte
 - Fichier CV: champ `cv_url`
@@ -273,35 +313,35 @@ Regles globales:
   - `dateLimite` non depassee
 - Reponse: `201`
 
-### GET /condidature/mesCandidatures
+### GET /candidature/mesCandidatures
 - Protection: `requireCandidat`
 - Reponse: `200`
 
-### DELETE /condidature/annuler/:id
-- Protection: `requireCandidat`
-- Condition: uniquement si `etape === soumise`
-- Reponse: `200`
-
-### PUT /condidature/modifier/:id
+### DELETE /candidature/annuler/:id
 - Protection: `requireCandidat`
 - Condition: uniquement si `etape === soumise`
-- Champs modifiables: `lettre_motivation` (ou `lettreMotivation`), `cv_url` (string)
 - Reponse: `200`
 
-### GET /condidature/getAllCandidatures
+### PUT /candidature/modifier/:id
+- Protection: `requireCandidat`
+- Condition: uniquement si `etape === soumise`
+- Champs modifiables: `lettre_motivation` (ou `lettreMotivation`), `cv_url`
+- Reponse: `200`
+
+### GET /candidature/getAllCandidatures
 - Protection: `requireAuth` + `requireTenant`
 - Query params optionnels: `offre`, `etape`
 - Reponse: `200`
 
-### GET /condidature/getCandidatureById/:id
+### GET /candidature/getCandidatureById/:id
 - Protection: `requireAuth` + `requireTenant`
 - Reponse: `200`
 
-### GET /condidature/getCandidaturesByOffre/:offreId
+### GET /candidature/getCandidaturesByOffre/:offreId
 - Protection: `requireAuth` + `requireTenant`
 - Reponse: `200`
 
-### PUT /condidature/updateCandidatureEtape/:id
+### PUT /candidature/updateCandidatureEtape/:id
 - Protection: `requireAuth` + `requireTenant`
 - Body possible:
 
@@ -314,17 +354,27 @@ Regles globales:
 
 - Transitions autorisees:
   - `soumise -> preselectionne | refuse`
-  - `preselectionne -> entretien_planifie | refuse`
+  - `preselectionne -> test_technique | entretien_planifie | refuse`
+  - `test_technique -> entretien_planifie | offre | refuse`
   - `entretien_planifie -> entretien_passe | refuse`
-  - `entretien_passe -> accepte | refuse`
+  - `entretien_passe -> offre | refuse`
+  - `offre -> accepte | refuse`
+- Cas `etape = entretien_planifie`:
+  - `dateEntretien`/`date_entretien` requis
+  - `typeEntretien`/`type_entretien` requis (`Presentiel`, `Visio`, `Telephone` cote payload)
+  - creation automatique d un `entretien`
+  - creation d une notification differee
 - Reponse: `200`
 
-### DELETE /condidature/deleteCandidatureById/:id
+### PUT /candidature/refuserCandidature/:id
 - Protection: `requireAuth` + `requireTenant`
+- Effet: force `etape = refuse` + notification differee de refus
 - Reponse: `200`
 
-Note importante:
-- A ce stade, il n'existe pas de route publique de suivi par token (ex: `/getCondidatureBySuivi/:token`) dans le code actuel.
+### DELETE /candidature/deleteCandidatureById/:id
+- Protection: `requireAuth` + `requireTenant`
+- Effet: suppression + notification differee de suppression
+- Reponse: `200`
 
 ## 5.5 Entretien (`/entretien`)
 
@@ -338,7 +388,10 @@ Note importante:
 
 ### POST /entretien/createEntretien
 - Protection: `requireAuth` + `requireTenant`
-- Body minimal:
+- Deux modes supportes:
+  - Mode A: avec `candidature`
+  - Mode B: sans candidature, avec triplet `candidat_email + candidat_nom + poste`
+- Body minimal mode A:
 
 ```json
 {
@@ -347,9 +400,20 @@ Note importante:
 }
 ```
 
-- Champs optionnels: `type_entretien`, `duree`, `lien_visio`
-- Validation: gestion des conflits d'horaire (responsable et candidature)
-- Effet: candidature associee passe a `entretien_planifie`
+- Body minimal mode B:
+
+```json
+{
+  "candidat_email": "candidate@example.com",
+  "candidat_nom": "Candidat X",
+  "poste": "Developpeur Backend",
+  "date_entretien": "2026-04-01T09:00:00.000Z"
+}
+```
+
+- Champs optionnels: `heure_debut`, `type_entretien`, `duree`, `lien_visio`
+- Validation: gestion des conflits d horaire (responsable et candidature)
+- Effet: si `candidature` existe, etape passe a `entretien_planifie`
 - Reponse: `201`
 
 ### PUT /entretien/updateEntretien/:id
@@ -367,6 +431,42 @@ Note importante:
 - Reponse: `200`
 
 ### DELETE /entretien/deleteEntretienById/:id
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
+
+## 5.6 Notification (`/notification`)
+
+### GET /notification/getNotificationsByCandidat/:candidatId
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
+
+### GET /notification/getPendingNotifications
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
+
+### POST /notification/createNotification
+- Protection: `requireAuth` + `requireTenant`
+- Body minimal:
+
+```json
+{
+  "candidat": "CANDIDAT_ID",
+  "candidature": "CANDIDATURE_ID",
+  "type": "etape_avancement"
+}
+```
+
+- Reponse: `201`
+
+### PUT /notification/markAsSent/:id
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
+
+### PUT /notification/markAsRead/:id
+- Protection: `requireAuth` + `requireTenant`
+- Reponse: `200`
+
+### DELETE /notification/deleteNotification/:id
 - Protection: `requireAuth` + `requireTenant`
 - Reponse: `200`
 
@@ -398,10 +498,11 @@ const { data } = await api.get('/offre/getAllOffres');
 
 ## 7. Codes de retour frequents
 
-- `200`: succes lecture/mise a jour/suppression
-- `201`: creation ok
-- `400`: donnees invalides
+- `200`: succes
+- `201`: ressource creee
+- `400`: validation/regle metier non respectee
 - `401`: non authentifie
-- `403`: acces interdit
+- `403`: acces refuse (role/tenant)
 - `404`: ressource introuvable
+- `409`: conflit de donnees
 - `500`: erreur serveur

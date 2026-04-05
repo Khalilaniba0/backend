@@ -5,7 +5,15 @@ const candidatureSchema = new mongoose.Schema({
     nom: { type: String, required: true },
     email: { type: String, required: true },
     telephone: { type: String },
-    cv_url: { type: String },
+    cv_url: {
+        type: String,
+        required: [
+            function () {
+                return this.isNew;
+            },
+            'cv_url is required for a new candidature'
+        ]
+    },
     lettreMotivation: { type: String, alias: 'lettre_motivation' },
     entreprise: { type: mongoose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
     offre: { type: mongoose.Schema.Types.ObjectId, ref: 'OffreEmploi', required: true },

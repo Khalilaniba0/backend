@@ -99,6 +99,7 @@ module.exports.updateEntreprise = async (req, res) => {
     if (adresse !== undefined) updateData.adresse = adresse;
     if (secteur !== undefined) updateData.secteur = secteur;
     if (logo !== undefined) updateData.logo = logo;
+    if (req.file) updateData.logo = `/logo/${req.file.filename}`;
     if (siteWeb !== undefined) updateData.siteWeb = siteWeb;
     if (plan !== undefined) updateData.plan = plan;
     if (isActive !== undefined) updateData.isActive = isActive;

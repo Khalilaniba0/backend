@@ -1,7 +1,16 @@
 @baseUrl = http://localhost:5000
 @json = application/json
 
-### 1) Register entreprise + admin (public)
+### -----------------------------------------------------------------
+### PREREQUIS
+### 1) Run login requests first in REST Client so cookies are persisted.
+### 2) Replace placeholder IDs below after create/list calls.
+### -----------------------------------------------------------------
+
+@offreId = REPLACE_OFFRE_ID
+@candidatureId = REPLACE_CANDIDATURE_ID
+
+### A1) Register tenant + admin (public)
 POST {{baseUrl}}/entreprise/registerEntreprise
 Content-Type: {{json}}
 
@@ -16,7 +25,7 @@ Content-Type: {{json}}
   "adminPassword": "Admin123!"
 }
 
-### 2) Login admin (save jwt cookie from response)
+### A2) Login admin (saves jwt cookie)
 POST {{baseUrl}}/user/login
 Content-Type: {{json}}
 
@@ -25,19 +34,7 @@ Content-Type: {{json}}
   "password": "Admin123!"
 }
 
-### 3) Create RH in same tenant (requires jwt cookie)
-POST {{baseUrl}}/user/createRh
-Content-Type: {{json}}
-
-{
-  "name": "RH QA",
-  "email": "rh.qa@example.com",
-  "password": "Rh123456!",
-  "tel": "12345678",
-  "departement": "RH"
-}
-
-### 4) Create offre in same tenant (requires jwt cookie)
+### A3) Create offer (admin cookie required)
 POST {{baseUrl}}/offre/createOffre
 Content-Type: {{json}}
 
@@ -52,26 +49,103 @@ Content-Type: {{json}}
   "niveauExperience": "mid"
 }
 
-### 5) Public: list offres
-GET {{baseUrl}}/offre/getAllOffres
-
-### 6) Public: postuler (replace offre id)
-POST {{baseUrl}}/condidature/postuler
+### A4) Register candidate (public)
+POST {{baseUrl}}/candidat/inscrire
 Content-Type: {{json}}
 
 {
-  "nom": "Candidat Public",
+  "nom": "Candidat QA",
   "email": "candidat.qa@example.com",
-  "telephone": "99999999",
-  "lettre_motivation": "Je suis motive",
-  "offre": "REPLACE_OFFRE_ID"
+  "motDePasse": "Candidat123!",
+  "telephone": "99999999"
 }
 
-### 7) Public: suivi candidature (replace token)
-GET {{baseUrl}}/condidature/getCondidatureBySuivi/REPLACE_TOKEN_SUIVI
+### A5) Login candidate (saves jwt_candidat cookie)
+POST {{baseUrl}}/candidat/connecter
+Content-Type: {{json}}
 
-### 8) Protected: get all condidatures (requires jwt cookie)
-GET {{baseUrl}}/condidature/getAllCondidatures
+{
+  "email": "candidat.qa@example.com",
+  "motDePasse": "Candidat123!"
+}
 
-### 9) Protected admin: my entreprise (requires jwt cookie)
-GET {{baseUrl}}/entreprise/getMyEntreprise
+### A6) Set candidate profile CV (candidate cookie required)
+PUT {{baseUrl}}/candidat/mettreAJourProfil
+Content-Type: {{json}}
+
+{
+  "cv_url": "cv_candidate_qa.pdf",
+  "linkedin": "https://linkedin.com/in/candidat-qa",
+  "salaireAttendu": 3000,
+  "disponibilite": "Immediate"
+}
+
+### A7) Candidate applies (candidate cookie required)
+POST {{baseUrl}}/candidature/postuler
+Content-Type: {{json}}
+
+{
+  "offre": "{{offreId}}",
+  "lettre_motivation": "Je suis motive pour ce poste"
+}
+
+### -----------------------------------------------------------------
+### PROBLEME 1 - Pipeline data must include candidature cv_url + candidat fields
+### Check in response data[*]:
+### - cv_url at candidature level
+### - candidat.telephone, candidat.salaireAttendu, candidat.disponibilite, candidat.linkedin
+### -----------------------------------------------------------------
+GET {{baseUrl}}/candidature/getAllCandidatures?offre={{offreId}}
+
+### -----------------------------------------------------------------
+### PROBLEME 4 - Transition preselectionne -> entretien_passe must be allowed
+### -----------------------------------------------------------------
+
+### B1) Move to preselectionne
+PUT {{baseUrl}}/candidature/updateCandidatureEtape/{{candidatureId}}
+Content-Type: {{json}}
+
+{
+  "etape": "preselectionne"
+}
+
+### B2) Move directly to entretien_passe (must return 200)
+PUT {{baseUrl}}/candidature/updateCandidatureEtape/{{candidatureId}}
+Content-Type: {{json}}
+
+{
+  "etape": "entretien_passe"
+}
+
+### -----------------------------------------------------------------
+### PROBLEME 3 - Refusal should delete planned interviews in backend
+### -----------------------------------------------------------------
+
+### C1) Move to entretien_planifie (creates entretien)
+PUT {{baseUrl}}/candidature/updateCandidatureEtape/{{candidatureId}}
+Content-Type: {{json}}
+
+{
+  "etape": "entretien_planifie",
+  "dateEntretien": "2026-04-15T09:30:00.000Z",
+  "typeEntretien": "Visio"
+}
+
+### C2) Refuse candidature (must also remove related entretiens)
+PUT {{baseUrl}}/candidature/refuserCandidature/{{candidatureId}}
+Content-Type: {{json}}
+
+{}
+
+### C3) List interviews and verify there is no interview with candidature == {{candidatureId}}
+GET {{baseUrl}}/entretien/getAllEntretiens
+
+### -----------------------------------------------------------------
+### PROBLEME 2 - Deleting offer should cascade delete candidatures + relations
+### -----------------------------------------------------------------
+
+### D1) Delete offer (must include deletedRelations counters)
+DELETE {{baseUrl}}/offre/deleteOffreById/{{offreId}}
+
+### D2) Verify candidatures by offer is empty or offer not found after deletion
+GET {{baseUrl}}/candidature/getCandidaturesByOffre/{{offreId}}

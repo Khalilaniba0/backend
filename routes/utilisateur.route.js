@@ -16,6 +16,8 @@ router.post('/createAdmin', requireAuth, requireAdmin, requireTenant, utilisateu
 router.delete('/deleteUser/:id', requireAuth, requireAdmin, requireTenant, utilisateurController.deleteUser);
 
 router.put('/updateUser/:id', requireAuth, requireTenant, utilisateurController.updateUser);
+router.put('/updateMyProfile', requireAuth, requireTenant, utilisateurController.updateMyProfile);
+router.put('/changePassword', requireAuth, requireTenant, utilisateurController.changePassword);
 router.post('/login', utilisateurController.login);
 router.post('/logout', requireAuth, utilisateurController.logout);
 

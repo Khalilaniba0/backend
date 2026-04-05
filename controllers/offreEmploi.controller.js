@@ -1,4 +1,11 @@
 const offreEmploiModel = require('../models/offreEmploi.model');
+const candidatureModel = require('../models/candidature.model');
+const { supprimerCandidaturesParOffre } = require('./candidature.controller');
+
+const POPULATE_OFFRE_REFS = [
+    { path: 'responsable', select: 'nom name email' },
+    { path: 'entreprise', select: 'nom logo secteur siteWeb' }
+];
 
 const construireFiltreOffres = (query = {}, entrepriseId = null) => {
     const filter = {};
@@ -31,7 +38,7 @@ module.exports.getAllOffres = async (req, res) => {
     try {
         const filter = construireFiltreOffres(req.query);
 
-        const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
+        const offres = await offreEmploiModel.find(filter).populate(POPULATE_OFFRE_REFS);
         res.status(200).json({ message: 'Offres retrieved successfully', data: offres.map(normaliserOffreSortie) });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving offres', error: error.message });
@@ -45,7 +52,7 @@ module.exports.getOffresByEntreprise = async (req, res) => {
         }
 
         const filter = construireFiltreOffres(req.query, req.entrepriseId);
-        const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
+        const offres = await offreEmploiModel.find(filter).populate(POPULATE_OFFRE_REFS);
 
         return res.status(200).json({
             message: 'Entreprise offres retrieved successfully',
@@ -64,7 +71,7 @@ module.exports.getOffresByEntrepriseId = async (req, res) => {
         }
 
         const filter = construireFiltreOffres(req.query, entrepriseId);
-        const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
+        const offres = await offreEmploiModel.find(filter).populate(POPULATE_OFFRE_REFS);
 
         return res.status(200).json({
             message: 'Entreprise offres retrieved successfully',
@@ -80,7 +87,7 @@ module.exports.getOffresDisponibles = async (req, res) => {
         const filter = construireFiltreOffres(req.query);
         filter.statut = 'open';
 
-        const offres = await offreEmploiModel.find(filter).populate('responsable', 'nom name email');
+        const offres = await offreEmploiModel.find(filter).populate(POPULATE_OFFRE_REFS);
         res.status(200).json({ message: 'Offres disponibles retrieved successfully', data: offres.map(normaliserOffreSortie) });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving offres', error: error.message });
@@ -90,7 +97,7 @@ module.exports.getOffresDisponibles = async (req, res) => {
 module.exports.getOffreById = async (req, res) => {
     try {
         const offreId = req.params.id;
-        const offre = await offreEmploiModel.findById(offreId).populate('responsable', 'nom name email');
+        const offre = await offreEmploiModel.findById(offreId).populate(POPULATE_OFFRE_REFS);
         if (!offre) {
             return res.status(404).json({ message: "Offre not found" });
         }
@@ -177,11 +184,28 @@ module.exports.deleteOffre = async (req, res) => {
         }
 
         const offreId = req.params.id;
-        const deletedOffre = await offreEmploiModel.findOneAndDelete({ _id: offreId, entreprise: req.entrepriseId });
-        if (!deletedOffre) {
+        const offre = await offreEmploiModel.findOne({ _id: offreId, entreprise: req.entrepriseId });
+        if (!offre) {
             return res.status(404).json({ message: "Offre not found" });
         }
-        res.status(200).json({ message: 'Offre deleted successfully', data: normaliserOffreSortie(deletedOffre) });
+
+        const cascadeResult = await supprimerCandidaturesParOffre(offre._id, req.entrepriseId);
+
+        const remainingCandidatures = await candidatureModel.countDocuments({ offre: offre._id });
+        if (remainingCandidatures > 0) {
+            return res.status(409).json({
+                message: 'Suppression de l offre annulee: des candidatures references existent encore.',
+                remainingCandidatures
+            });
+        }
+
+        await offreEmploiModel.deleteOne({ _id: offre._id, entreprise: req.entrepriseId });
+
+        res.status(200).json({
+            message: 'Offre et toutes ses candidatures supprimees avec succes',
+            data: normaliserOffreSortie(offre),
+            deletedRelations: cascadeResult
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting offre', error: error.message });
     }

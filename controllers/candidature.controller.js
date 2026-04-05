@@ -2,7 +2,9 @@ const candidatureModel = require('../models/candidature.model');
 const offreEmploiModel = require('../models/offreEmploi.model');
 const candidatModel = require('../models/candidat.model');
 const entretienModel = require('../models/entretien.model');
+const utilisateurModel = require('../models/utilisateur.model');
 const notificationModel = require('../models/notification.model');
+const { createCalendarEvent } = require('../utils/googleCalendar');
 const { buildNotificationMessage, resolveNotificationTypeByEtape } = require('../utils/notificationMessage');
 const crypto = require('crypto');
 
@@ -68,6 +70,44 @@ const createDelayedNotification = async ({
     });
 };
 
+module.exports.supprimerCandidaturesParOffre = async (offreId, entrepriseId) => {
+    if (!offreId) {
+        throw new Error('offreId is required for cascade delete');
+    }
+
+    const baseFilter = { offre: offreId };
+    if (entrepriseId) {
+        baseFilter.entreprise = entrepriseId;
+    }
+
+    const candidatures = await candidatureModel.find(baseFilter).select('_id');
+    if (!candidatures.length) {
+        return { candidatures: 0, entretiens: 0, notifications: 0 };
+    }
+
+    const candidatureIds = candidatures.map((candidature) => candidature._id);
+
+    const entretienFilter = { candidature: { $in: candidatureIds } };
+    const notificationFilter = { candidature: { $in: candidatureIds } };
+
+    if (entrepriseId) {
+        entretienFilter.entreprise = entrepriseId;
+        notificationFilter.entreprise = entrepriseId;
+    }
+
+    const [entretienResult, notificationResult, candidatureResult] = await Promise.all([
+        entretienModel.deleteMany(entretienFilter),
+        notificationModel.deleteMany(notificationFilter),
+        candidatureModel.deleteMany(baseFilter)
+    ]);
+
+    return {
+        candidatures: candidatureResult.deletedCount || 0,
+        entretiens: entretienResult.deletedCount || 0,
+        notifications: notificationResult.deletedCount || 0
+    };
+};
+
 module.exports.postuler = async (req, res) => {
     try {
         if (!req.candidatId) {
@@ -104,7 +144,16 @@ module.exports.postuler = async (req, res) => {
             return res.status(400).json({ message: 'The deadline for this offer has passed' });
         }
 
-        const cv_url = req.file ? req.file.filename : (candidat.cv_url || null);
+        const hasUploadedCv = Boolean(req.file && req.file.filename);
+        const hasProfileCv = Boolean(candidat.cv_url);
+
+        if (!hasUploadedCv && !hasProfileCv) {
+            return res.status(422).json({
+                message: 'CV requis: ajoutez un CV depuis votre profil ou telechargez un CV pour cette candidature.'
+            });
+        }
+
+        const cv_url = hasUploadedCv ? req.file.filename : candidat.cv_url;
         const tokenSuivi = crypto.randomUUID();
 
         const candidature = await candidatureModel.create({
@@ -137,12 +186,61 @@ module.exports.mesCandidatures = async (req, res) => {
 
         const candidatures = await candidatureModel
             .find({ candidat: req.candidatId })
-            .populate({ path: 'offre', select: 'poste post typeContrat localisation entreprise' })
+            .populate({
+                path: 'offre',
+                select: 'poste post typeContrat localisation entreprise',
+                populate: { path: 'entreprise', select: 'nom logo secteur siteWeb' }
+            })
             .sort({ createdAt: -1 });
+
+        const candidatureIds = candidatures.map(function (item) {
+            return item._id;
+        });
+
+        let entretienByCandidatureId = {};
+        if (candidatureIds.length > 0) {
+            const entretiens = await entretienModel
+                .find({ candidature: { $in: candidatureIds } })
+                .sort({ dateEntretien: -1 });
+
+            entretienByCandidatureId = entretiens.reduce(function (acc, entretien) {
+                const candidatureId = entretien?.candidature ? String(entretien.candidature) : null;
+                if (!candidatureId) {
+                    return acc;
+                }
+
+                if (!acc[candidatureId]) {
+                    acc[candidatureId] = {
+                        _id: entretien._id,
+                        dateEntretien: entretien.dateEntretien || entretien.date_entretien || null,
+                        typeEntretien: entretien.typeEntretien || entretien.type_entretien || null,
+                        lienVisio: entretien.lienVisio || entretien.lien_visio || null,
+                        reponse: entretien.reponse || null
+                    };
+                }
+
+                return acc;
+            }, {});
+        }
+
+        const payload = candidatures.map(function (candidature) {
+            const normalizedCandidature = normaliserCandidatureSortie(candidature);
+            const candidatureId = String(candidature._id);
+            const entretien = entretienByCandidatureId[candidatureId] || null;
+
+            if (!entretien) {
+                return normalizedCandidature;
+            }
+
+            return {
+                ...normalizedCandidature,
+                entretien
+            };
+        });
 
         return res.status(200).json({
             message: 'Candidatures recuperees.',
-            data: candidatures.map(normaliserCandidatureSortie)
+            data: payload
         });
     } catch (error) {
         return res.status(500).json({ message: error.message });
@@ -226,6 +324,50 @@ module.exports.getAllCandidatures = async (req, res) => {
             .find(filter)
             .populate('offre')
             .sort({ scoreIA: -1 });
+
+        const planifiees = candidatures.filter(function (c) {
+            return c.etape === 'entretien_planifie';
+        });
+
+        if (planifiees.length > 0) {
+            const candidatureIds = planifiees.map(function (c) {
+                return c._id;
+            });
+
+            const entretiens = await entretienModel.find({
+                entreprise: req.entrepriseId,
+                candidature: { $in: candidatureIds }
+            }).select('candidature');
+
+            const existingIds = new Set(
+                entretiens
+                    .map(function (e) {
+                        return e.candidature ? String(e.candidature) : null;
+                    })
+                    .filter(Boolean)
+            );
+
+            const staleIds = candidatureIds.filter(function (id) {
+                return !existingIds.has(String(id));
+            });
+
+            if (staleIds.length > 0) {
+                await candidatureModel.updateMany(
+                    { _id: { $in: staleIds }, entreprise: req.entrepriseId, etape: 'entretien_planifie' },
+                    {
+                        $set: { etape: 'preselectionne', dateEntretien: null, typeEntretien: null }
+                    }
+                );
+
+                candidatures.forEach(function (c) {
+                    if (staleIds.some(function (id) { return String(id) === String(c._id); })) {
+                        c.etape = 'preselectionne';
+                        c.dateEntretien = null;
+                        c.typeEntretien = null;
+                    }
+                });
+            }
+        }
 
         return res.status(200).json({
             message: 'Candidatures retrieved successfully',
@@ -327,12 +469,15 @@ module.exports.updateCandidatureEtape = async (req, res) => {
         };
         let parsedDateEntretien = null;
         let normalizedTypeEntretien = null;
+        let googleWarning;
 
         if (scoreIA !== undefined || score_ia !== undefined) {
             candidature.scoreIA = scoreIA !== undefined ? scoreIA : score_ia;
         }
 
         const etapeSource = candidature.etape;
+        const previousDateEntretien = candidature.dateEntretien;
+        const previousTypeEntretien = candidature.typeEntretien;
 
         if (etape) {
             if (etape === candidature.etape) {
@@ -380,13 +525,68 @@ module.exports.updateCandidatureEtape = async (req, res) => {
         await candidature.save();
 
         if (etape === 'entretien_planifie') {
-            await entretienModel.create({
-                candidature: candidature._id,
-                entreprise: req.entrepriseId,
-                responsable: req.userId,
-                dateEntretien: parsedDateEntretien,
-                typeEntretien: normalizedTypeEntretien
-            });
+            let entretien;
+            try {
+                entretien = await entretienModel.findOne({
+                    candidature: candidature._id,
+                    entreprise: req.entrepriseId
+                });
+
+                if (!entretien) {
+                    entretien = new entretienModel({
+                        candidature: candidature._id,
+                        entreprise: req.entrepriseId,
+                        etapeSource,
+                        responsable: req.userId,
+                        dateEntretien: parsedDateEntretien,
+                        typeEntretien: normalizedTypeEntretien,
+                        candidatEmail: candidature.email || candidature?.candidat?.email,
+                        candidatNom: candidature.nom || candidature?.candidat?.nom,
+                        poste: candidature?.offre?.poste || candidature?.offre?.post
+                    });
+                } else {
+                    entretien.etapeSource = entretien.etapeSource || etapeSource;
+                    entretien.responsable = req.userId;
+                    entretien.dateEntretien = parsedDateEntretien;
+                    entretien.typeEntretien = normalizedTypeEntretien;
+                    entretien.candidatEmail = candidature.email || candidature?.candidat?.email || entretien.candidatEmail;
+                    entretien.candidatNom = candidature.nom || candidature?.candidat?.nom || entretien.candidatNom;
+                    entretien.poste = candidature?.offre?.poste || candidature?.offre?.post || entretien.poste;
+                }
+
+                await entretien.save();
+            } catch (entretienError) {
+                candidature.etape = etapeSource;
+                candidature.dateEntretien = previousDateEntretien;
+                candidature.typeEntretien = previousTypeEntretien;
+                await candidature.save();
+                return res.status(500).json({
+                    message: "Impossible de synchroniser l'entretien. La candidature a ete restauree a l'etape precedente."
+                });
+            }
+
+            try {
+                const rhUser = await utilisateurModel.findById(req.userId).select('googleTokens');
+
+                if (!rhUser?.googleTokens) {
+                    googleWarning = "RH non connecté à Google Calendar. Connectez votre compte Google dans les paramètres.";
+                } else if (rhUser?.googleTokens?.refresh_token) {
+                    if (!entretien.googleEventId) {
+                        const { eventId, meetLink } = await createCalendarEvent({
+                            tokens: rhUser.googleTokens,
+                            entretien
+                        });
+
+                        entretien.lienVisio = meetLink;
+                        entretien.googleEventId = eventId;
+                        await entretien.save();
+                    }
+                } else {
+                    console.error('Google Calendar sync skipped: missing refresh_token for RH user');
+                }
+            } catch (googleError) {
+                console.error('Google Calendar sync failed (non-bloquant):', googleError.message);
+            }
         }
 
         if (etape) {
@@ -399,7 +599,16 @@ module.exports.updateCandidatureEtape = async (req, res) => {
             });
         }
 
-        return res.status(200).json({ message: 'Candidature updated successfully', data: normaliserCandidatureSortie(candidature) });
+        const responsePayload = {
+            message: 'Candidature updated successfully',
+            data: normaliserCandidatureSortie(candidature)
+        };
+
+        if (googleWarning) {
+            responsePayload.googleWarning = googleWarning;
+        }
+
+        return res.status(200).json(responsePayload);
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }

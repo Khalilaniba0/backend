@@ -1,6 +1,7 @@
 require('dotenv').config();
 const utilisateurModel = require('../models/utilisateur.model');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 const maxage = 3 * 24 * 60 * 60; // 3 days in seconds
 
@@ -10,7 +11,9 @@ const normaliserUtilisateurSortie = (doc) => {
         ...utilisateur,
         name: utilisateur.name || utilisateur.nom,
         block: typeof utilisateur.block === 'boolean' ? utilisateur.block : utilisateur.bloque,
-        loginAttempts: typeof utilisateur.loginAttempts === 'number' ? utilisateur.loginAttempts : utilisateur.tentativesConnexion
+        loginAttempts: typeof utilisateur.loginAttempts === 'number' ? utilisateur.loginAttempts : utilisateur.tentativesConnexion,
+        derniereConnexion: utilisateur.derniereConnexion || null,
+        isActive: utilisateur.bloque === true ? false : (utilisateur.isActive !== false)
     };
 };
 
@@ -25,6 +28,54 @@ const createToken = (utilisateur) => {
         process.env.JWT_SECRET_KEY,
         { expiresIn: maxage }
     );
+};
+
+const firstDefined = (...values) => values.find((value) => value !== undefined);
+
+const resolvePasswordPayload = (body = {}) => {
+    const hasExplicitNewPassword = [
+        body.newPassword,
+        body.new_password,
+        body.newpassword,
+        body.newMotDePasse,
+        body.nouveauMotDePasse,
+        body.newPass,
+        body.passwordNew
+    ].some((value) => value !== undefined);
+
+    const newPwd = firstDefined(
+        body.newPassword,
+        body.new_password,
+        body.newpassword,
+        body.newMotDePasse,
+        body.nouveauMotDePasse,
+        body.newPass,
+        body.passwordNew,
+        body.password,
+        body.motDePasse
+    );
+
+    let oldPwd = firstDefined(
+        body.oldPassword,
+        body.old_password,
+        body.oldpassword,
+        body.currentPassword,
+        body.current_password,
+        body.currentpassword,
+        body.ancienMotDePasse,
+        body.oldMotDePasse,
+        body.motDePasseActuel,
+        body.currentMotDePasse,
+        body.oldPass,
+        body.currentPass
+    );
+
+    // Some UIs send { password, newPassword } where password represents the current one.
+    if (oldPwd === undefined && hasExplicitNewPassword) {
+        oldPwd = firstDefined(body.password, body.motDePasse);
+    }
+
+    return { oldPwd, newPwd };
 };
 
 module.exports.getAllUsers = async (req, res) => {
@@ -68,33 +119,198 @@ module.exports.deleteUser = async (req, res) => {
 module.exports.updateUser = async (req, res) => {
     try {
         const utilisateurId = req.params.id;
-        const isAdmin = (req.utilisateur || req.user).role === 'admin';
+        const utilisateurCourant = req.utilisateur || req.user;
+        const isAdmin = utilisateurCourant.role === 'admin';
         const isOwner = utilisateurId.toString() === (req.utilisateurId || req.userId || (req.user && req.user._id.toString()));
         if (!isAdmin && !isOwner) {
             return res.status(403).json({ message: "Access denied" });
         }
-        const { name, nom, tel, photo, adresse, competences, formation, linkedin, departement } = req.body;
-        const donneesMiseAJour = {};
-        if (nom !== undefined || name !== undefined) donneesMiseAJour.nom = nom !== undefined ? nom : name;
-        if (tel !== undefined) donneesMiseAJour.tel = tel;
-        if (photo !== undefined) donneesMiseAJour.photo = photo;
-        if (adresse !== undefined) donneesMiseAJour.adresse = adresse;
-        if (competences !== undefined) donneesMiseAJour.competences = competences;
-        if (formation !== undefined) donneesMiseAJour.formation = formation;
-        if (linkedin !== undefined) donneesMiseAJour.linkedin = linkedin;
-        if (departement !== undefined) donneesMiseAJour.departement = departement;
 
-        const utilisateurMisAJour = await utilisateurModel.findOneAndUpdate(
-            { _id: utilisateurId, entreprise: req.entrepriseId },
-            donneesMiseAJour,
-            { new: true }
-        ).select('-motDePasse');
+        const utilisateur = await utilisateurModel.findOne({ _id: utilisateurId, entreprise: req.entrepriseId });
+        if (!utilisateur) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const {
+            name,
+            nom,
+            email,
+            tel,
+            telephone,
+            photo,
+            adresse,
+            address,
+            competences,
+            formation,
+            linkedin,
+            departement,
+            role,
+            block,
+            bloque,
+            loginAttempts,
+            tentativesConnexion,
+            newPassword,
+            new_password,
+            nouveauMotDePasse,
+            password,
+            motDePasse,
+            oldPassword,
+            old_password,
+            oldpassword,
+            currentPassword,
+            ancienMotDePasse
+        } = req.body;
+
+        let hasChanges = false;
+
+        if (nom !== undefined || name !== undefined) {
+            utilisateur.nom = nom !== undefined ? nom : name;
+            hasChanges = true;
+        }
+        if (email !== undefined) {
+            utilisateur.email = email.toLowerCase();
+            hasChanges = true;
+        }
+        if (tel !== undefined || telephone !== undefined) {
+            utilisateur.tel = tel !== undefined ? tel : telephone;
+            hasChanges = true;
+        }
+        if (photo !== undefined) {
+            utilisateur.photo = photo;
+            hasChanges = true;
+        }
+        if (adresse !== undefined || address !== undefined) {
+            utilisateur.adresse = adresse !== undefined ? adresse : address;
+            hasChanges = true;
+        }
+        if (competences !== undefined) {
+            utilisateur.competences = competences;
+            hasChanges = true;
+        }
+        if (formation !== undefined) {
+            utilisateur.formation = formation;
+            hasChanges = true;
+        }
+        if (linkedin !== undefined) {
+            utilisateur.linkedin = linkedin;
+            hasChanges = true;
+        }
+        if (departement !== undefined) {
+            utilisateur.departement = departement;
+            hasChanges = true;
+        }
+
+        const { oldPwd, newPwd: newPasswordValue } = resolvePasswordPayload(req.body);
+
+        if (newPasswordValue !== undefined) {
+            if (!isAdmin) {
+                if (!oldPwd) {
+                    return res.status(400).json({ message: 'Old password is required to change password' });
+                }
+
+                const passwordMatch = await bcrypt.compare(oldPwd, utilisateur.motDePasse || '');
+                if (!passwordMatch) {
+                    return res.status(400).json({ message: 'Old password is incorrect' });
+                }
+            }
+
+            utilisateur.motDePasse = newPasswordValue;
+            hasChanges = true;
+        }
+
+        if (isAdmin) {
+            if (role !== undefined) {
+                utilisateur.role = role;
+                hasChanges = true;
+            }
+
+            const blockValue = bloque !== undefined ? bloque : block;
+            if (blockValue !== undefined) {
+                utilisateur.bloque = Boolean(blockValue);
+                if (!utilisateur.bloque) {
+                    utilisateur.tentativesConnexion = 0;
+                }
+                hasChanges = true;
+            }
+
+            const attempts = tentativesConnexion !== undefined ? tentativesConnexion : loginAttempts;
+            if (attempts !== undefined) {
+                utilisateur.tentativesConnexion = attempts;
+                hasChanges = true;
+            }
+
+            if (req.body.isActive !== undefined) {
+                utilisateur.isActive = Boolean(req.body.isActive);
+                hasChanges = true;
+            }
+        }
+
+        if (!hasChanges) {
+            return res.status(400).json({ message: 'No data provided for update' });
+        }
+
+        await utilisateur.save();
+
+        const utilisateurMisAJour = await utilisateurModel
+            .findById(utilisateur._id)
+            .select('-motDePasse');
+
         if (!utilisateurMisAJour) {
             return res.status(404).json({ message: "User not found" });
         }
         res.status(200).json({ message: 'User updated successfully', data: normaliserUtilisateurSortie(utilisateurMisAJour) });
     } catch (error) {
+        if (error && error.code === 11000) {
+            return res.status(409).json({ message: 'Email already exists' });
+        }
         res.status(500).json({ message: 'Error updating user', detail: error.message });
+    }
+};
+
+module.exports.updateMyProfile = async (req, res) => {
+    req.params.id = req.utilisateurId || req.userId || (req.user && req.user._id && req.user._id.toString());
+    return module.exports.updateUser(req, res);
+};
+
+module.exports.changePassword = async (req, res) => {
+    try {
+        if (!req.entrepriseId) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const utilisateurId = req.utilisateurId || req.userId || (req.user && req.user._id && req.user._id.toString());
+        if (!utilisateurId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const { oldPwd, newPwd } = resolvePasswordPayload(req.body);
+
+        if (!oldPwd || !newPwd) {
+            return res.status(400).json({
+                message: 'oldPassword/currentPassword and newPassword/password are required'
+            });
+        }
+
+        const utilisateur = await utilisateurModel.findOne({
+            _id: utilisateurId,
+            entreprise: req.entrepriseId
+        });
+
+        if (!utilisateur) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const passwordMatch = await bcrypt.compare(oldPwd, utilisateur.motDePasse || '');
+        if (!passwordMatch) {
+            return res.status(400).json({ message: 'Old password is incorrect' });
+        }
+
+        utilisateur.motDePasse = newPwd;
+        await utilisateur.save();
+
+        return res.status(200).json({ message: 'Password updated successfully' });
+    } catch (error) {
+        return res.status(500).json({ message: 'Error updating password', detail: error.message });
     }
 };
 
@@ -145,6 +361,10 @@ module.exports.login = async (req, res) => {
     try {
         const { email, password, motDePasse } = req.body;
         const utilisateur = await utilisateurModel.connexion(email, motDePasse !== undefined ? motDePasse : password);
+        await utilisateurModel.findByIdAndUpdate(utilisateur._id, {
+            derniereConnexion: new Date(),
+            isActive: true
+        });
         if (!utilisateur.entreprise) {
             return res.status(403).json({ message: "User has no entreprise assigned" });
         }
@@ -154,7 +374,7 @@ module.exports.login = async (req, res) => {
         const donneesUtilisateur = normaliserUtilisateurSortie(utilisateur);
         delete donneesUtilisateur.motDePasse;
         delete donneesUtilisateur.password;
-        res.status(200).json({ message: 'Login successful', data: donneesUtilisateur });
+        res.status(200).json({ message: 'Login successful', data: donneesUtilisateur ,token: token});
     } catch (error) {
         res.status(401).json({ error: error.message });
     }

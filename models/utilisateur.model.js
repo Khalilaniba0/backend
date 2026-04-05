@@ -13,12 +13,29 @@ const utilisateurSchema = new mongoose.Schema(
     },
     motDePasse: { type: String, alias: 'password' },
     role: { type: String, enum: ['rh', 'admin'], default: 'rh' },
-    tel: String,
+    tel: { type: String, alias: 'telephone' },
     photo: String,
-    adresse: String,
+    adresse: { type: String, alias: 'address' },
+    departement: String,
+    competences: [{ type: String }],
+    formation: [{ type: String }],
+    linkedin: String,
+    googleTokens: {
+      access_token: String,
+      refresh_token: String,
+      expiry_date: Number
+    },
     entreprise: { type: mongoose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
     bloque: { type: Boolean, default: false, alias: 'block' },
-    tentativesConnexion: { type: Number, default: 0, alias: 'loginAttempts' }
+    tentativesConnexion: { type: Number, default: 0, alias: 'loginAttempts' },
+    derniereConnexion: {
+      type: Date,
+      default: null
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    }
   },
   { timestamps: true }
 );

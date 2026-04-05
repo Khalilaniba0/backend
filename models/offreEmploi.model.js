@@ -8,14 +8,11 @@ const offreEmploiSchema = new mongoose.Schema(
         entreprise: { type: mongoose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
         responsable: { type: mongoose.Schema.Types.ObjectId, ref: 'Utilisateur' },
         exigences: { type: [String], alias: 'requirements' },
-        typeContrat: { type: String, enum: ['CDI', 'CDD', 'Stage', 'Alternance', 'Freelance'], default: 'CDI' },
-        salaireMin: Number,
-        salaireMax: Number,
+        langues: { type: [String], default: [] },
+        typeContrat: { type: String, enum: ['CDI', 'CDD', 'Stage', 'Freelance'], default: 'CDI' },
         localisation: String,
         modeContrat: { type: String, enum: ['presentiel', 'hybride', 'remote'], default: 'presentiel' },
-        departement: String,
-        dateLimite: Date,
-        niveauExperience: { type: String, enum: ['junior', 'mid', 'senior'], default: 'junior' }
+        niveauExperience: { type: String, enum: ['junior', 'senior'], default: 'junior' }
     },
     { timestamps: true }
 );

@@ -14,6 +14,7 @@ const entretienRouter = require('./routes/entretien.route');
 const entrepriseRouter = require('./routes/entreprise.route');
 const candidatRouter = require('./routes/candidat.route');
 const notificationRouter = require('./routes/notification.route');
+const googleRouter = require('./routes/google.route');
 const { startNotificationCron } = require('./notificationCron');
 
 require('dotenv').config();
@@ -39,6 +40,7 @@ app.use('/entretien', entretienRouter);
 app.use('/entreprise', entrepriseRouter);
 app.use('/candidat', candidatRouter);
 app.use('/notification', notificationRouter);
+app.use('/', googleRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
