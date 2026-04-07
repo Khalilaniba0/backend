@@ -7,7 +7,7 @@ const requireTenant = require('../middlewares/requireTenant');
 router.get('/getAllOffres', offreEmploiController.getAllOffres);
 router.get('/getOffresDisponibles', offreEmploiController.getOffresDisponibles);
 router.get('/getOffresByEntreprise', requireAuth, requireTenant, offreEmploiController.getOffresByEntreprise);
-router.get('/getOffresByEntreprise/:entrepriseId', offreEmploiController.getOffresByEntrepriseId);
+router.get('/getOffresByEntreprise/:entrepriseId', requireAuth, requireTenant, offreEmploiController.getOffresByEntrepriseId);
 router.get('/getOffreById/:id', offreEmploiController.getOffreById);
 router.post('/createOffre', requireAuth, requireTenant, offreEmploiController.createOffre);
 router.put('/updateOffre/:id', requireAuth, requireTenant, offreEmploiController.updateOffre);

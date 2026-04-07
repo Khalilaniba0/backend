@@ -1,6 +1,6 @@
 # Architecture Backend - Talentia ATS (Express + MongoDB)
 
-Mise a jour: 2026-04-03
+Mise a jour: 2026-04-05
 
 ## Objectif
 
@@ -14,9 +14,6 @@ Perimetre: `backend/` (code source maintenable, pas `node_modules/`).
 - `backend/app.js` : point d'entree serveur HTTP, montage middlewares globaux, montage routes, gestion erreurs, lancement DB + cron.
 - `backend/notificationCron.js` : tache planifiee d'envoi des notifications en attente.
   Utilise par: `backend/app.js`.
-- `backend/DOCUMENTATION_BACKEND_COMPLETE.md` : documentation backend generale.
-- `backend/DOCUMENTATION_API_ET_MODELES.md` : reference API et modeles.
-- `backend/GUIDE_CONSOMMATION_API.md` : guide de consommation des endpoints.
 - `backend/architecture.md` : cartographie backend (ce fichier).
 
 ## Configuration
@@ -47,7 +44,10 @@ Perimetre: `backend/` (code source maintenable, pas `node_modules/`).
 - `backend/routes/notification.route.js` : endpoints notifications (pending, create, mark sent/read, delete).
   Utilise par: `backend/app.js` sous `/notification`.
   Depend de: `controllers/notification.controller`, `middlewares/authMiddleware`, `requireTenant`.
-- `backend/routes/google.route.js` : OAuth Google Calendar (`/auth/google`, callback).
+- `backend/routes/google.route.js` : OAuth Google Calendar (demarrage OAuth + callback).
+  Routes:
+    - `GET /auth/google` [protege par `requireAuth`] : lance la redirection vers Google.
+    - `GET /auth/google/callback` [public] : recupere `code`/`state`, sauvegarde les tokens OAuth sur l'utilisateur, puis redirige frontend.
   Utilise par: `backend/app.js` sous `/`.
   Depend de: `middlewares/authMiddleware`, `models/utilisateur.model`, `utils/googleCalendar`.
 
@@ -115,6 +115,8 @@ Perimetre: `backend/` (code source maintenable, pas `node_modules/`).
   Utilise par: `controllers/candidature.controller`, `controllers/entretien.controller`, `routes/google.route.js`.
 - `backend/utils/notificationMessage.js` : generation centralisee de messages de notification + mapping type par etape.
   Utilise par: `controllers/candidature.controller`, `controllers/notification.controller`.
+- `backend/utils/iaScoringClient.js` : client HTTP vers le service IA (`/api/process-job`, `/api/match-cv`) pour reformulation d'offre et scoring CV.
+  Contrat d'integration detaille: `backend/docs/integration-ia.md`.
 
 ## Dossiers runtime et support
 

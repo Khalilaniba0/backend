@@ -7,6 +7,8 @@ const notificationModel = require('../models/notification.model');
 const { createCalendarEvent } = require('../utils/googleCalendar');
 const { buildNotificationMessage, resolveNotificationTypeByEtape } = require('../utils/notificationMessage');
 const crypto = require('crypto');
+const path = require('path');
+const { scorerCV } = require('../utils/iaScoringClient');
 
 const ALLOWED_TRANSITIONS = {
     'soumise': ['preselectionne', 'refuse'],
@@ -24,8 +26,22 @@ const normaliserCandidatureSortie = (doc) => {
     return {
         ...candidature,
         lettre_motivation: candidature.lettre_motivation || candidature.lettreMotivation,
-        score_ia: candidature.score_ia !== undefined ? candidature.score_ia : candidature.scoreIA
+        score_ia: candidature.score_ia !== undefined ? candidature.score_ia : candidature.scoreIA,
+        rapport_ia: candidature.rapport_ia !== undefined ? candidature.rapport_ia : candidature.rapportIA
     };
+};
+
+const buildCvAbsolutePath = (reqFile, cvUrl) => {
+    if (reqFile && reqFile.path) {
+        return path.resolve(reqFile.path);
+    }
+
+    if (!cvUrl) {
+        return null;
+    }
+
+    const fileName = path.basename(String(cvUrl).replace(/\\/g, '/'));
+    return path.join(__dirname, '..', 'public', 'cv', fileName);
 };
 
 const getObjectId = (value) => {
@@ -167,6 +183,50 @@ module.exports.postuler = async (req, res) => {
             offre,
             tokenSuivi
         });
+
+        (async () => {
+            try {
+                const offrePourScoring = await offreEmploiModel
+                    .findById(offre)
+                    .select('poste post description exigences requirements niveauExperience niveauEducation langues');
+
+                if (!offrePourScoring) {
+                    return;
+                }
+
+                const cvFilePath = buildCvAbsolutePath(req.file, cv_url);
+                if (!cvFilePath) {
+                    await candidatureModel.findByIdAndUpdate(candidature._id, { scoreIA: null });
+                    return;
+                }
+
+                const scoreResult = await scorerCV(cvFilePath, offrePourScoring);
+                const scoreGlobalValue = Number(scoreResult?.score_global);
+                const scoreIA = Number.isFinite(scoreGlobalValue) ? scoreGlobalValue : null;
+
+                await candidatureModel.findByIdAndUpdate(candidature._id, {
+                    scoreIA,
+                    rapportIA: scoreResult || null
+                });
+            } catch (iaError) {
+                console.error('[IA] score-cv', {
+                    candidatureId: candidature._id,
+                    offreId: offre,
+                    status: iaError.status || null,
+                    message: iaError.message,
+                    details: iaError.details || null
+                });
+
+                try {
+                    await candidatureModel.findByIdAndUpdate(candidature._id, { scoreIA: null });
+                } catch (persistError) {
+                    console.error('[IA] score-cv persist-null failed', {
+                        candidatureId: candidature._id,
+                        message: persistError.message
+                    });
+                }
+            }
+        })();
 
         return res.status(201).json({
             message: 'Condidature created successfully',

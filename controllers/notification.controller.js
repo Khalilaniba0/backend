@@ -9,12 +9,23 @@ const getPosteFromCandidature = (candidature) => {
 
 module.exports.getNotificationsByCandidat = async (req, res) => {
     try {
-        if (!req.entrepriseId) {
-            return res.status(403).json({ message: 'Access denied: tenant is required' });
+        const candidatId = req.candidatId || req.params.candidatId;
+
+        if (!candidatId) {
+            return res.status(400).json({ message: 'candidatId is required' });
+        }
+
+        if (req.candidatId && String(req.params.candidatId) !== String(req.candidatId)) {
+            return res.status(403).json({ message: 'Access denied: cannot access notifications of another candidate' });
+        }
+
+        const filter = { candidat: candidatId };
+        if (req.entrepriseId) {
+            filter.entreprise = req.entrepriseId;
         }
 
         const notifications = await notificationModel
-            .find({ candidat: req.params.candidatId, entreprise: req.entrepriseId })
+            .find(filter)
             .populate('candidature', 'etape offre')
             .sort({ createdAt: -1 });
 
@@ -138,12 +149,17 @@ module.exports.markAsSent = async (req, res) => {
 
 module.exports.markAsRead = async (req, res) => {
     try {
-        if (!req.entrepriseId) {
-            return res.status(403).json({ message: 'Access denied: tenant is required' });
+        const filter = { _id: req.params.id };
+        if (req.candidatId) {
+            filter.candidat = req.candidatId;
+        } else if (req.entrepriseId) {
+            filter.entreprise = req.entrepriseId;
+        } else {
+            return res.status(403).json({ message: 'Access denied' });
         }
 
         const notification = await notificationModel.findOneAndUpdate(
-            { _id: req.params.id, entreprise: req.entrepriseId },
+            filter,
             { statut: 'lue' },
             { new: true }
         );
@@ -163,14 +179,16 @@ module.exports.markAsRead = async (req, res) => {
 
 module.exports.deleteNotification = async (req, res) => {
     try {
-        if (!req.entrepriseId) {
-            return res.status(403).json({ message: 'Access denied: tenant is required' });
+        const filter = { _id: req.params.id };
+        if (req.candidatId) {
+            filter.candidat = req.candidatId;
+        } else if (req.entrepriseId) {
+            filter.entreprise = req.entrepriseId;
+        } else {
+            return res.status(403).json({ message: 'Access denied' });
         }
 
-        const notification = await notificationModel.findOneAndDelete({
-            _id: req.params.id,
-            entreprise: req.entrepriseId
-        });
+        const notification = await notificationModel.findOneAndDelete(filter);
 
         if (!notification) {
             return res.status(404).json({ message: 'Notification not found' });

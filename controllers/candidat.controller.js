@@ -5,6 +5,16 @@ const Candidat = require('../models/candidat.model');
 
 const COOKIE_MAX_AGE =  24 * 60 * 60 * 1000;
 const CANDIDAT_JWT_SECRET = process.env.JWT_SECRET_KEY;
+const CANDIDAT_COOKIE_OPTIONS = {
+  httpOnly: true,
+  maxAge: COOKIE_MAX_AGE,
+  sameSite: 'strict'
+};
+const CLEAR_COOKIE_OPTIONS = {
+  httpOnly: true,
+  maxAge: 1,
+  sameSite: 'strict'
+};
 
 const createCandidatToken = (candidat) => {
   if (!CANDIDAT_JWT_SECRET) {
@@ -56,11 +66,9 @@ module.exports.inscrire = async (req, res) => {
     const candidat = await Candidat.create({ nom, email: emailNormalise, motDePasse, telephone });
     const token = createCandidatToken(candidat);
 
-    res.cookie('jwt_candidat', token, {
-      httpOnly: true,
-      maxAge: COOKIE_MAX_AGE,
-      sameSite: 'strict'
-    });
+    // Session unique: se connecter en candidat invalide la session RH/Admin.
+    res.cookie('jwt', '', CLEAR_COOKIE_OPTIONS);
+    res.cookie('jwt_candidat', token, CANDIDAT_COOKIE_OPTIONS);
 
     return res.status(201).json({
       message: 'Inscription candidat reussie.',
@@ -98,11 +106,9 @@ module.exports.connecter = async (req, res) => {
 
     const token = createCandidatToken(candidat);
 
-    res.cookie('jwt_candidat', token, {
-      httpOnly: true,
-      maxAge: COOKIE_MAX_AGE,
-      sameSite: 'strict'
-    });
+    // Session unique: se connecter en candidat invalide la session RH/Admin.
+    res.cookie('jwt', '', CLEAR_COOKIE_OPTIONS);
+    res.cookie('jwt_candidat', token, CANDIDAT_COOKIE_OPTIONS);
 
     return res.status(200).json({
       message: 'Connexion candidat reussie.',
@@ -122,7 +128,7 @@ module.exports.connecter = async (req, res) => {
 
 module.exports.deconnecter = async (req, res) => {
   try {
-    res.cookie('jwt_candidat', '', { httpOnly: true, maxAge: 1 });
+    res.cookie('jwt_candidat', '', CLEAR_COOKIE_OPTIONS);
     return res.status(200).json({ message: 'Deconnexion candidat reussie.' });
   } catch (error) {
     return res.status(500).json({ message: error.message });

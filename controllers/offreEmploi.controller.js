@@ -1,6 +1,7 @@
 const offreEmploiModel = require('../models/offreEmploi.model');
 const candidatureModel = require('../models/candidature.model');
 const { supprimerCandidaturesParOffre } = require('./candidature.controller');
+const { processOffer } = require('../utils/iaScoringClient');
 
 const POPULATE_OFFRE_REFS = [
     { path: 'responsable', select: 'nom name email' },
@@ -115,7 +116,7 @@ module.exports.createOffre = async (req, res) => {
 
         const {
             post, poste, description, requirements, exigences, typeContrat, salaireMin, salaireMax,
-            localisation, modeContrat, departement, dateLimite, niveauExperience
+            localisation, modeContrat, departement, dateLimite, niveauExperience, niveauEducation, langues
         } = req.body;
 
         const newOffre = new offreEmploiModel({
@@ -125,14 +126,30 @@ module.exports.createOffre = async (req, res) => {
             typeContrat,
             salaireMin,
             salaireMax,
-            localisation, modeContrat, departement, dateLimite, niveauExperience,
+            localisation, modeContrat, departement, dateLimite, niveauExperience, niveauEducation, langues,
             responsable: (req.utilisateur || req.user)._id,
             entreprise: req.entrepriseId
         });
-
         await newOffre.save();
+
+        // Ne pas bloquer la creation d'offre si l'IA est indisponible.
+        (async () => {
+            try {
+                const processedJobIA = await processOffer(newOffre);
+                await offreEmploiModel.findByIdAndUpdate(newOffre._id, {
+                    processedJobIA,
+                    iaOutOfScope: processedJobIA?.is_it_domain === false
+                });
+            } catch (iaError) {
+                console.error('[IA] process-offer', iaError.message, iaError.details || '');
+            }
+        })();
+
         res.status(201).json({ message: 'Offre created successfully', data: normaliserOffreSortie(newOffre) });
     } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Invalid offre payload', error: error.message });
+        }
         res.status(500).json({ message: 'Error creating offre', error: error.message });
     }
 };
@@ -173,6 +190,9 @@ module.exports.updateOffre = async (req, res) => {
         }
         res.status(200).json({ message: 'Offre updated successfully', data: normaliserOffreSortie(updatedOffre) });
     } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Invalid offre payload', error: error.message });
+        }
         res.status(500).json({ message: 'Error updating offre', error: error.message });
     }
 };

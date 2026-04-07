@@ -18,6 +18,7 @@ const candidatureSchema = new mongoose.Schema({
     entreprise: { type: mongoose.Schema.Types.ObjectId, ref: 'Entreprise', required: true },
     offre: { type: mongoose.Schema.Types.ObjectId, ref: 'OffreEmploi', required: true },
     scoreIA: { type: Number, default: null, alias: 'score_ia' },
+    rapportIA: { type: Object, default: null, alias: 'rapport_ia' },
     dateEntretien: { type: Date, default: null, alias: 'date_entretien' },
     typeEntretien: {
         type: String,

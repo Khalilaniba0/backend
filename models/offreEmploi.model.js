@@ -10,9 +10,20 @@ const offreEmploiSchema = new mongoose.Schema(
         exigences: { type: [String], alias: 'requirements' },
         langues: { type: [String], default: [] },
         typeContrat: { type: String, enum: ['CDI', 'CDD', 'Stage', 'Freelance'], default: 'CDI' },
-        localisation: String,
         modeContrat: { type: String, enum: ['presentiel', 'hybride', 'remote'], default: 'presentiel' },
-        niveauExperience: { type: String, enum: ['junior', 'senior'], default: 'junior' }
+        niveauEducation: { type: String },
+        // Accept legacy levels (junior/senior) and numeric values sent by frontend form.
+        niveauExperience: {
+            type: String,
+            default: null,
+            set: (value) => {
+                if (value === undefined || value === null) return null;
+                const normalized = String(value).trim();
+                return normalized === '' ? null : normalized;
+            }
+        },
+        processedJobIA: { type: Object, default: null },
+        iaOutOfScope: { type: Boolean, default: false }
     },
     { timestamps: true }
 );

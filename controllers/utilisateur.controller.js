@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 const maxage = 3 * 24 * 60 * 60; // 3 days in seconds
+const AUTH_COOKIE_OPTIONS = { httpOnly: true, maxAge: maxage * 1000, sameSite: 'strict' };
+const CLEAR_COOKIE_OPTIONS = { httpOnly: true, maxAge: 1, sameSite: 'strict' };
 
 const normaliserUtilisateurSortie = (doc) => {
     const utilisateur = doc.toObject ? doc.toObject({ virtuals: true }) : doc;
@@ -370,7 +372,9 @@ module.exports.login = async (req, res) => {
         }
 
         const token = createToken(utilisateur);
-        res.cookie('jwt', token, { httpOnly: true, maxAge: maxage * 1000, sameSite: 'strict' });
+        // Session unique: se connecter en RH/Admin invalide la session candidat.
+        res.cookie('jwt_candidat', '', CLEAR_COOKIE_OPTIONS);
+        res.cookie('jwt', token, AUTH_COOKIE_OPTIONS);
         const donneesUtilisateur = normaliserUtilisateurSortie(utilisateur);
         delete donneesUtilisateur.motDePasse;
         delete donneesUtilisateur.password;
@@ -382,7 +386,7 @@ module.exports.login = async (req, res) => {
 
 module.exports.logout = async (req, res) => {
     try {
-        res.cookie("jwt", "", { httpOnly: true, maxAge: 1 });
+        res.cookie("jwt", "", CLEAR_COOKIE_OPTIONS);
         res.status(200).json({ message: "Logout successful" });
     } catch (error) {
         res.status(500).json({ error: error.message });

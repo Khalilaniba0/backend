@@ -4,6 +4,7 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var cors = require('cors');
+const axios = require('axios');
 
 const http = require('http');
 const { connectToMongoDB } = require('./config/db');
@@ -19,6 +20,25 @@ const { startNotificationCron } = require('./notificationCron');
 
 require('dotenv').config();
 var app = express();
+
+const IA_BASE_URL = process.env.IA_BASE_URL || 'http://127.0.0.1:8000';
+const IA_HEALTH_TIMEOUT_MS = Number(process.env.IA_HEALTH_TIMEOUT_MS || 5000);
+
+const checkIaHealth = async () => {
+  try {
+    const response = await axios.get(`${IA_BASE_URL}/health`, {
+      timeout: IA_HEALTH_TIMEOUT_MS
+    });
+    console.log(`[IA] health check OK (${response.status})`);
+  } catch (error) {
+    console.warn('[IA] health check KO', {
+      baseUrl: IA_BASE_URL,
+      status: error?.response?.status || null,
+      message: error.message,
+      details: error?.response?.data || null
+    });
+  }
+};
 
 // Enable CORS for local frontend running on http://localhost:3000
 const corsOptions = {
@@ -61,6 +81,7 @@ server.listen(process.env.PORT, () => {
   connectToMongoDB();
   if (process.env.NODE_ENV !== 'test') {
     startNotificationCron();
+    checkIaHealth();
   }
   console.log(`Server is running on port ${process.env.PORT}`);
 });
