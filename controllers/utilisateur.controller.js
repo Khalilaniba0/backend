@@ -4,8 +4,21 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 const maxage = 3 * 24 * 60 * 60; // 3 days in seconds
-const AUTH_COOKIE_OPTIONS = { httpOnly: true, maxAge: maxage * 1000, sameSite: 'strict' };
-const CLEAR_COOKIE_OPTIONS = { httpOnly: true, maxAge: 1, sameSite: 'strict' };
+const isProduction = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;
+const COOKIE_SAME_SITE = isProduction ? 'None' : 'Lax';
+const AUTH_COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: isProduction,
+    maxAge: maxage * 1000,
+    sameSite: COOKIE_SAME_SITE
+};
+const CLEAR_COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: isProduction,
+    maxAge: 1,
+    sameSite: COOKIE_SAME_SITE
+};
 
 const normaliserUtilisateurSortie = (doc) => {
     const utilisateur = doc.toObject ? doc.toObject({ virtuals: true }) : doc;
@@ -27,7 +40,7 @@ const createToken = (utilisateur) => {
             role: utilisateur.role,
             entrepriseId: utilisateur.entreprise
         },
-        process.env.JWT_SECRET_KEY,
+        JWT_SECRET,
         { expiresIn: maxage }
     );
 };

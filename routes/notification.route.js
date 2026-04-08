@@ -7,7 +7,7 @@ const requireTenant = require('../middlewares/requireTenant');
 const notificationController = require('../controllers/notification.controller');
 
 router.get('/getNotificationsByCandidat/:candidatId', requireCandidat, notificationController.getNotificationsByCandidat);
-router.get('/getPendingNotifications', requireAuth, requireTenant, notificationController.getPendingNotifications);
+//router.get('/getPendingNotifications', requireAuth, requireTenant, notificationController.getPendingNotifications);
 router.post('/createNotification', requireAuth, requireTenant, notificationController.createNotification);
 router.put('/markAsSent/:id', requireAuth, requireTenant, notificationController.markAsSent);
 router.put('/markAsRead/:id', requireCandidat, notificationController.markAsRead);

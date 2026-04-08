@@ -2,6 +2,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// On Render Free, local filesystem storage is ephemeral.
+// Keep multer for now, but migrate uploads to Cloudinary/S3 for durable production storage.
 const logoUploadPath = path.join(__dirname, '..', 'public', 'logo');
 
 const allowedMimeTypes = new Set([

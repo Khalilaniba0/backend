@@ -3,9 +3,9 @@ const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
 
-const IA_BASE_URL = process.env.IA_BASE_URL || 'http://127.0.0.1:8000';
-const IA_TIMEOUT_MS = Number(process.env.IA_TIMEOUT_MS || 15000);
-const IA_SCORE_TIMEOUT_MS = Math.max(60000, Number(process.env.IA_SCORE_TIMEOUT_MS || 60000));
+const IA_BASE_URL = process.env.IA_SERVICE_URL || process.env.IA_BASE_URL || 'http://127.0.0.1:8000';
+const IA_TIMEOUT_MS = Number(process.env.IA_TIMEOUT_MS || 10000);
+const IA_SCORE_TIMEOUT_MS = Number(process.env.IA_SCORE_TIMEOUT_MS || 10000);
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 
@@ -59,6 +59,15 @@ const normalizeAxiosError = (error, endpointLabel) => {
     }
 
     return createIaError('Service IA indisponible', null, null, error);
+};
+
+const isIaServiceUnavailable = (error) => {
+    const code = String(error?.code || '');
+    const message = String(error?.message || '');
+    const isTimeout = code === 'ECONNABORTED' || /timeout/i.test(message);
+    const hasNoResponse = !error?.response && error?.status === undefined;
+
+    return isTimeout || hasNoResponse;
 };
 
 const toProcessJobPayload = (offre = {}) => {
@@ -228,6 +237,19 @@ const scorerCV = async (cvFilePath, offre = {}) => {
     } catch (error) {
         const status = error?.response?.status || null;
         const details = error?.response?.data || null;
+
+        if (isIaServiceUnavailable(error)) {
+            console.warn('[IA] /score indisponible, fallback score null', {
+                code: error?.code || null,
+                message: error?.message || null
+            });
+
+            return {
+                score_global: null,
+                fallback: true,
+                reason: 'Service IA indisponible'
+            };
+        }
 
         if (status === 422) {
             console.error('[IA] /score validation-422', {

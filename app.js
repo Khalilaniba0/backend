@@ -21,8 +21,9 @@ const { startNotificationCron } = require('./notificationCron');
 require('dotenv').config();
 var app = express();
 
-const IA_BASE_URL = process.env.IA_BASE_URL || 'http://127.0.0.1:8000';
+const IA_BASE_URL = process.env.IA_SERVICE_URL || process.env.IA_BASE_URL || 'http://127.0.0.1:8000';
 const IA_HEALTH_TIMEOUT_MS = Number(process.env.IA_HEALTH_TIMEOUT_MS || 5000);
+const PORT = process.env.PORT || 5000;
 
 const checkIaHealth = async () => {
   try {
@@ -40,10 +41,11 @@ const checkIaHealth = async () => {
   }
 };
 
-// Enable CORS for local frontend running on http://localhost:3000
 const corsOptions = {
-  origin: 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 app.use(cors(corsOptions));
 
@@ -77,11 +79,16 @@ app.use(function(err, req, res, next) {
 });
 
 const server = http.createServer(app);
-server.listen(process.env.PORT, () => {
+server.listen(PORT, () => {
   connectToMongoDB();
   if (process.env.NODE_ENV !== 'test') {
     startNotificationCron();
     checkIaHealth();
   }
-  console.log(`Server is running on port ${process.env.PORT}`);
+
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('⚠️  Fichiers uploadés sur filesystem éphémère. Migrer vers Cloudinary en production réelle.');
+  }
+
+  console.log(`Server is running on port ${PORT}`);
 });

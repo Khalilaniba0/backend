@@ -4,16 +4,20 @@ const path = require('path');
 const Candidat = require('../models/candidat.model');
 
 const COOKIE_MAX_AGE =  24 * 60 * 60 * 1000;
-const CANDIDAT_JWT_SECRET = process.env.JWT_SECRET_KEY;
+const isProduction = process.env.NODE_ENV === 'production';
+const CANDIDAT_JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;
+const COOKIE_SAME_SITE = isProduction ? 'None' : 'Lax';
 const CANDIDAT_COOKIE_OPTIONS = {
   httpOnly: true,
+  secure: isProduction,
   maxAge: COOKIE_MAX_AGE,
-  sameSite: 'strict'
+  sameSite: COOKIE_SAME_SITE
 };
 const CLEAR_COOKIE_OPTIONS = {
   httpOnly: true,
+  secure: isProduction,
   maxAge: 1,
-  sameSite: 'strict'
+  sameSite: COOKIE_SAME_SITE
 };
 
 const createCandidatToken = (candidat) => {

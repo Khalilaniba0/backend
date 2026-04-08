@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const utilisateurModel = require('../models/utilisateur.model');
+const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;
 
 const requireAuth = async (req, res, next) => {
   try {
@@ -8,7 +9,7 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json({ error: "Unauthorized: No token provided" });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decodedToken) => {
+    jwt.verify(token, JWT_SECRET, async (err, decodedToken) => {
       if (err) {
         return res.status(401).json({ error: "Unauthorized: Invalid token" });
       } else {
